@@ -8,3 +8,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
+management:
+  health:
+    redis:
+      enabled: false

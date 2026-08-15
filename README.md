@@ -33,7 +33,7 @@ Static and slow data become segment-level scores baked into the routing graph. F
 
 ## Status
 
-Phase 0 scaffolding is in progress. The Spring Boot API, Python pipeline, and React frontend scaffolds are ready. Local infrastructure verification is pending a Docker-enabled host.
+The monorepo scaffolds are ready. The live environmental slice includes scheduled air quality, pollen, weather alert, and construction ingestion; PostGIS hazard fields; Redis-cached GraphHopper areas; and the conditions API. The base routing and trigger-profile phases still need to be connected before live areas can affect an end-to-end route.
 
 ## Local development
 

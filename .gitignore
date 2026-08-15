@@ -1,6 +1,7 @@
 # Java / Spring
 api/target/
 api/build/
+api/build-*/
 api/.gradle/
 *.class
 

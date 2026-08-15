@@ -178,6 +178,7 @@ dependencies = [
     { name = "prefect" },
     { name = "psycopg", extra = ["binary"] },
     { name = "rasterio" },
+    { name = "redis" },
     { name = "shapely" },
     { name = "sqlalchemy" },
 ]
@@ -190,6 +191,7 @@ requires-dist = [
     { name = "prefect", specifier = ">=3.8.3" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.4" },
     { name = "rasterio", specifier = ">=1.5.1" },
+    { name = "redis", specifier = ">=6.4.0" },
     { name = "shapely", specifier = ">=2.1.2" },
     { name = "sqlalchemy", specifier = ">=2.0.52" },
 ]

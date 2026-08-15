@@ -5,6 +5,11 @@ spring:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/beacon}
     username: ${POSTGRES_USER:beacon}
     password: ${POSTGRES_PASSWORD:beacon}
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+      repositories:
+        enabled: false
   flyway:
     enabled: true
   jpa:

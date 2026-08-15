@@ -1,0 +1,36 @@
+# Java / Spring
+api/target/
+api/build/
+api/.gradle/
+*.class
+
+# Python
+pipeline/.venv/
+pipeline/__pycache__/
+pipeline/.pytest_cache/
+*.py[cod]
+
+# Frontend
+web/node_modules/
+web/dist/
+web/.vite/
+
+# Local data and generated routing artifacts
+data/
+*.osm.pbf
+*.osm
+graph-cache/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

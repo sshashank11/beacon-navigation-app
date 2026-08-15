@@ -33,4 +33,15 @@ Static and slow data become segment-level scores baked into the routing graph. F
 
 ## Status
 
-Phase 0 scaffolding is in progress.
+Phase 0 scaffolding is in progress. The local infrastructure definition and Spring Boot API scaffold are ready; Python and web scaffolds are next.
+
+## Local development
+
+Prerequisites: Java 21 and Docker Desktop.
+
+```bash
+make up
+make api
+```
+
+The API uses the root environment variables when present and otherwise connects to the local Beacon PostGIS database defined in `docker-compose.yml`. Once the stack and API are running, the health check is available at `http://localhost:8080/actuator/health`.

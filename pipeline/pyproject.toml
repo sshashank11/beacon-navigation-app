@@ -1,0 +1,26 @@
+[project]
+name = "beacon-pipeline"
+version = "0.1.0"
+description = "Environmental data ingestion and geospatial processing for Beacon"
+readme = "README.md"
+authors = [
+    { name = "Shashank Sharma" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "geopandas>=1.1.4",
+    "httpx>=0.28.1",
+    "pandas>=3.0.5",
+    "prefect>=3.8.3",
+    "psycopg[binary]>=3.3.4",
+    "rasterio>=1.5.1",
+    "shapely>=2.1.2",
+    "sqlalchemy>=2.0.52",
+]
+
+[project.scripts]
+beacon-pipeline = "beacon_pipeline:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"

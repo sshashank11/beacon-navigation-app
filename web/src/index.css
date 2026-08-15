@@ -15,3 +15,11 @@ body {
   min-width: 320px;
   min-height: 100vh;
 }
+
+.conditions-scroll {
+  scrollbar-width: none;
+}
+
+.conditions-scroll::-webkit-scrollbar {
+  display: none;
+}

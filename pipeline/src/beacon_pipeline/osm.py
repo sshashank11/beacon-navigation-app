@@ -151,23 +151,7 @@ def _run_osmium(
     *,
     capture_output: bool = False,
 ) -> str:
-    local_osmium = shutil.which("osmium")
-    if local_osmium:
-        command = [local_osmium, *arguments]
-    else:
-        if not shutil.which("docker"):
-            raise RuntimeError("Install Osmium or Docker before preparing routing data")
-        command = [
-            "docker",
-            "run",
-            "--rm",
-            "--volume",
-            f"{data_dir}:/data",
-            "--workdir",
-            "/data",
-            OSMIUM_IMAGE,
-            *arguments,
-        ]
+    command = osmium_command(data_dir, arguments)
 
     result = subprocess.run(
         command,
@@ -177,3 +161,22 @@ def _run_osmium(
         capture_output=capture_output,
     )
     return result.stdout
+
+
+def osmium_command(data_dir: Path, arguments: list[str]) -> list[str]:
+    local_osmium = shutil.which("osmium")
+    if local_osmium:
+        return [local_osmium, *arguments]
+    if not shutil.which("docker"):
+        raise RuntimeError("Install Osmium or Docker before preparing routing data")
+    return [
+        "docker",
+        "run",
+        "--rm",
+        "--volume",
+        f"{data_dir.resolve()}:/data",
+        "--workdir",
+        "/data",
+        OSMIUM_IMAGE,
+        *arguments,
+    ]

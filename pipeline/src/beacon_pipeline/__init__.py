@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 from beacon_pipeline.config import load_settings
+from beacon_pipeline.extract_segments import DEFAULT_OSM_PATH, extract_segments
 from beacon_pipeline.flows import serve_flows
 from beacon_pipeline.ingest.airnow import ingest_airnow
 from beacon_pipeline.ingest.dob_permits import ingest_dob_permits
@@ -27,10 +28,12 @@ def main() -> None:
             "refresh-construction-scores",
             "build-hazard-fields",
             "prepare-osm",
+            "extract-segments",
             "serve",
         ],
     )
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_OSM_DATA_DIR)
+    parser.add_argument("--osm-path", type=Path, default=DEFAULT_OSM_PATH)
     parser.add_argument("--force-download", action="store_true")
     args = parser.parse_args()
 
@@ -44,6 +47,14 @@ def main() -> None:
         return
 
     settings = load_settings()
+    if args.job == "extract-segments":
+        result = extract_segments(settings.database_url, args.osm_path)
+        print(
+            "extract-segments: wrote "
+            f"{result.segment_count:,} segments from {result.way_count:,} ways "
+            f"(max {result.maximum_length_m:.2f}m, avg {result.average_length_m:.2f}m)"
+        )
+        return
     if args.job == "ingest-openaq":
         count = ingest_openaq(settings)
     elif args.job == "ingest-airnow":

@@ -10,6 +10,7 @@ import {
   MapPin,
   Navigation,
   Route,
+  Scale,
   Trash2,
 } from 'lucide-react'
 import * as maplibregl from 'maplibre-gl'
@@ -19,6 +20,7 @@ import type { FeatureCollection, LineString, Point } from 'geojson'
 import {
   createRouteComparison,
   hazardTileUrl,
+  type ComparedRoute,
   type HazardLayer,
   type LatLng,
   type RouteMode,
@@ -26,6 +28,7 @@ import {
   type RouteResponse,
   type RouteVariant,
 } from '../api/routes'
+import { useProfileStore } from '../store/profileStore'
 
 const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 const NEW_YORK_CENTER: [number, number] = [-73.9654, 40.7006]
@@ -57,6 +60,7 @@ const emptyFeatureCollection: FeatureCollection = {
 }
 
 export function RoutePlanner() {
+  const profile = useProfileStore()
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const activePointRef = useRef<ActivePoint>('origin')
@@ -182,14 +186,20 @@ export function RoutePlanner() {
         source: ROUTE_SOURCE_ID,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          'line-color': ['match', ['get', 'variant'], 'cleanest', '#168447', '#116f8b'],
+          'line-color': [
+            'match',
+            ['get', 'variant'],
+            'fastest', '#617c8a',
+            'balanced', '#16818a',
+            '#168447',
+          ],
           'line-width': ['case', ['get', 'selected'], 6, 3],
           'line-opacity': ['case', ['get', 'selected'], 1, 0.62],
         },
       }, 'route-points-halo')
     }
 
-    if (routeMutation.data) fitRoute(map, routeMutation.data[selectedVariant])
+    if (routeMutation.data) fitRoute(map, routeMutation.data[selectedVariant].route)
   }, [mapReady, routeMutation.data, selectedVariant])
 
   useEffect(() => {
@@ -222,7 +232,18 @@ export function RoutePlanner() {
 
   function findRoute() {
     if (!points.origin || !points.destination) return
-    routeMutation.mutate({ origin: points.origin, destination: points.destination, mode })
+    setSelectedVariant('cleanest')
+    routeMutation.mutate({
+      origin: points.origin,
+      destination: points.destination,
+      mode,
+      preset: 'none',
+      weights: profile.weights,
+      hard_avoids: profile.hardAvoids,
+      max_grade_pct: profile.maxGradePct,
+      detour_tolerance: profile.detourTolerance,
+      conservatism: profile.conservatism,
+    })
   }
 
   function selectMode(nextMode: RouteMode) {
@@ -468,16 +489,9 @@ interface RouteComparisonSummaryProps {
 }
 
 function RouteComparisonSummary({ comparison, selected, onSelect }: RouteComparisonSummaryProps) {
-  const distanceDelta = comparison.fastest.distance_m === 0
-    ? 0
-    : (comparison.cleanest.distance_m / comparison.fastest.distance_m - 1) * 100
-
   return (
     <div className="mt-5 border-t border-[#dce3df] pt-4">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase text-[#6a776f]">Route options</p>
-        <p className="text-xs font-medium text-[#6d7a72]">{formatSignedPercent(distanceDelta)} distance</p>
-      </div>
+      <p className="mb-2 text-xs font-semibold uppercase text-[#6a776f]">Route options</p>
       <RouteOption
         variant="fastest"
         label="Fastest"
@@ -487,8 +501,16 @@ function RouteComparisonSummary({ comparison, selected, onSelect }: RouteCompari
         onSelect={onSelect}
       />
       <RouteOption
+        variant="balanced"
+        label="Balanced"
+        icon={Scale}
+        route={comparison.balanced}
+        selected={selected === 'balanced'}
+        onSelect={onSelect}
+      />
+      <RouteOption
         variant="cleanest"
-        label="Lower PM2.5"
+        label="Cleanest"
         icon={Leaf}
         route={comparison.cleanest}
         selected={selected === 'cleanest'}
@@ -502,34 +524,51 @@ interface RouteOptionProps {
   variant: RouteVariant
   label: string
   icon: typeof Navigation
-  route: RouteResponse
+  route: ComparedRoute
   selected: boolean
   onSelect: (variant: RouteVariant) => void
 }
 
 function RouteOption({ variant, label, icon: Icon, route, selected, onSelect }: RouteOptionProps) {
-  const color = variant === 'cleanest' ? '#168447' : '#116f8b'
+  const colors: Record<RouteVariant, string> = {
+    fastest: '#617c8a',
+    balanced: '#16818a',
+    cleanest: '#168447',
+  }
+  const deltas = topExposureDeltas(route.comparative_diff)
   return (
     <button
       type="button"
-      className={`mb-2 flex min-h-16 w-full items-center gap-3 border px-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447] ${
-        selected ? 'border-[#8aa99a] bg-[#f2f7f4]' : 'border-[#d7dfda] bg-white hover:border-[#aebdb4]'
+      className={`mb-2 w-full border px-3 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447] ${
+        selected ? 'border-[#168447] bg-[#f1f8f3]' : 'border-[#d7dfda] bg-white hover:border-[#aebdb4]'
       }`}
       onClick={() => onSelect(variant)}
       aria-pressed={selected}
     >
-      <span className="grid size-9 shrink-0 place-items-center text-white" style={{ backgroundColor: color }}>
-        <Icon className="size-4" aria-hidden />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-[#243129]">{label}</span>
-        <span className="mt-0.5 flex items-center gap-3 text-xs text-[#68766e]">
-          <span>{formatDistance(route.distance_m)}</span>
-          <span className="inline-flex items-center gap-1">
-            <Clock3 className="size-3" aria-hidden />
-            {formatDuration(route.duration_s)}
+      <span className="flex items-start gap-3">
+        <span className="grid size-9 shrink-0 place-items-center text-white" style={{ backgroundColor: colors[variant] }}>
+          <Icon className="size-4" aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-[#243129]">{label}</span>
+          <span className="mt-0.5 flex items-center gap-3 text-xs text-[#68766e]">
+            <span>{formatDistance(route.route.distance_m)}</span>
+            <span className="inline-flex items-center gap-1">
+              <Clock3 className="size-3" aria-hidden />
+              {formatDuration(route.route.duration_s)}
+            </span>
           </span>
         </span>
+      </span>
+      <span className="mt-2 grid grid-cols-2 gap-2">
+        {deltas.map((delta) => (
+          <span key={delta.hazard} className="min-w-0 bg-[#eef3f0] px-2 py-1.5">
+            <span className="block truncate text-[10px] font-semibold uppercase text-[#6a776f]">{formatHazard(delta.hazard)}</span>
+            <span className={`mt-0.5 block text-xs font-bold ${delta.value < 0 ? 'text-[#168447]' : 'text-[#8a5937]'}`}>
+              {formatSignedPercent(delta.value * 100)}
+            </span>
+          </span>
+        ))}
       </span>
     </button>
   )
@@ -555,15 +594,15 @@ function routeFeatureCollection(
   selected: RouteVariant = 'cleanest',
 ): FeatureCollection<LineString> {
   if (!comparison) return { type: 'FeatureCollection', features: [] }
-  const variants: RouteVariant[] = selected === 'fastest'
-    ? ['cleanest', 'fastest']
-    : ['fastest', 'cleanest']
+  const variants = (['fastest', 'balanced', 'cleanest'] as RouteVariant[])
+    .filter((variant) => variant !== selected)
+    .concat(selected)
   return {
     type: 'FeatureCollection',
     features: variants.map((variant) => ({
       type: 'Feature',
       properties: { variant, selected: variant === selected },
-      geometry: comparison[variant].geometry,
+      geometry: comparison[variant].route.geometry,
     })),
   }
 }
@@ -605,4 +644,33 @@ function formatDuration(seconds: number): string {
 function formatSignedPercent(value: number): string {
   if (Math.abs(value) < 0.05) return 'Same'
   return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`
+}
+
+function topExposureDeltas(diff: Record<string, number | null>) {
+  const deltas = Object.entries(diff)
+    .filter(([hazard, value]) => hazard !== 'distance' && value != null)
+    .map(([hazard, value]) => ({ hazard, value: value as number }))
+    .sort((left, right) => Math.abs(right.value) - Math.abs(left.value))
+    .slice(0, 2)
+  if (deltas.length > 0) return deltas
+  return [
+    { hazard: 'exposure', value: 0 },
+    { hazard: 'distance', value: diff.distance ?? 0 },
+  ]
+}
+
+function formatHazard(hazard: string): string {
+  const labels: Record<string, string> = {
+    exposure: 'Exposure',
+    distance: 'Distance',
+    pm25: 'PM2.5',
+    no2: 'NO2',
+    ozone: 'Ozone',
+    traffic_prox: 'Traffic',
+    industrial_prox: 'Industrial',
+    shade_deficit: 'Low shade',
+    pollen_tree: 'Tree pollen',
+    grade: 'Grade',
+  }
+  return labels[hazard] ?? hazard.replaceAll('_', ' ')
 }

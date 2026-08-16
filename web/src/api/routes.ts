@@ -1,5 +1,6 @@
 export type RouteMode = 'foot' | 'bike'
-export type RouteVariant = 'fastest' | 'cleanest'
+export type RouteVariant = 'fastest' | 'balanced' | 'cleanest'
+export type LegacyRouteVariant = Exclude<RouteVariant, 'balanced'>
 export type HazardLayer = 'pm25' | 'no2' | 'ozone' | 'traffic' | 'industrial' | 'shade' | 'pollen'
 
 export type LatLng = [latitude: number, longitude: number]
@@ -8,7 +9,7 @@ export interface RouteRequest {
   origin: LatLng
   destination: LatLng
   mode: RouteMode
-  variant?: RouteVariant
+  variant?: LegacyRouteVariant
 }
 
 export interface RouteInstruction {
@@ -30,9 +31,32 @@ export interface RouteResponse {
   instructions: RouteInstruction[]
 }
 
+export interface ComparedRoute {
+  route: RouteResponse
+  exposure_breakdown: Record<string, number>
+  comparative_diff: Record<string, number | null>
+  weight_scale: number
+  attempts: number
+  detour_cap_m: number
+  detour_cap_exceeded: boolean
+}
+
 export interface RouteComparison {
-  fastest: RouteResponse
-  cleanest: RouteResponse
+  fastest: ComparedRoute
+  balanced: ComparedRoute
+  cleanest: ComparedRoute
+}
+
+export interface RouteComparisonRequest {
+  origin: LatLng
+  destination: LatLng
+  mode: RouteMode
+  preset: 'none'
+  weights: Record<string, number>
+  hard_avoids: string[]
+  max_grade_pct: number
+  detour_tolerance: number
+  conservatism: number
 }
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
@@ -56,13 +80,23 @@ export async function createRoute(request: RouteRequest): Promise<RouteResponse>
 }
 
 export async function createRouteComparison(
-  request: Omit<RouteRequest, 'variant'>,
+  request: RouteComparisonRequest,
 ): Promise<RouteComparison> {
-  const [fastest, cleanest] = await Promise.all([
-    createRoute({ ...request, variant: 'fastest' }),
-    createRoute({ ...request, variant: 'cleanest' }),
-  ])
-  return { fastest, cleanest }
+  const response = await fetch(`${apiBaseUrl}/api/v1/routes/compare`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  })
+
+  if (!response.ok) {
+    const detail = await response.text()
+    throw new Error(detail || `Route comparison failed with status ${response.status}`)
+  }
+
+  return response.json() as Promise<RouteComparison>
 }
 
 export function hazardTileUrl(hazard: HazardLayer): string {

@@ -45,6 +45,16 @@ class ConstructionPermit:
     latitude: float
 
 
+@dataclass(frozen=True)
+class StreetImage:
+    mapillary_id: str
+    longitude: float
+    latitude: float
+    compass_angle: float
+    captured_at: datetime
+    thumb_url: str
+
+
 def upsert_readings(database_url: str, readings: Iterable[Reading]) -> int:
     rows = list(readings)
     if not rows:
@@ -72,6 +82,43 @@ def upsert_readings(database_url: str, readings: Iterable[Reading]) -> int:
                         row.source,
                         row.value,
                         row.unit,
+                    )
+                    for row in rows
+                ],
+            )
+        conn.commit()
+    return len(rows)
+
+
+def upsert_street_images(database_url: str, images: Iterable[StreetImage]) -> int:
+    rows = list(images)
+    if not rows:
+        return 0
+
+    with psycopg.connect(database_url) as conn:
+        with conn.cursor() as cur:
+            cur.executemany(
+                """
+                INSERT INTO street_image
+                  (mapillary_id, geom, compass_angle, captured_at, thumb_url)
+                VALUES
+                  (%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326), %s, %s, %s)
+                ON CONFLICT (mapillary_id)
+                DO UPDATE SET
+                  geom = EXCLUDED.geom,
+                  compass_angle = EXCLUDED.compass_angle,
+                  captured_at = EXCLUDED.captured_at,
+                  thumb_url = EXCLUDED.thumb_url,
+                  harvested_at = now()
+                """,
+                [
+                    (
+                        row.mapillary_id,
+                        row.longitude,
+                        row.latitude,
+                        row.compass_angle,
+                        row.captured_at,
+                        row.thumb_url,
                     )
                     for row in rows
                 ],

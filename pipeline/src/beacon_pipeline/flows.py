@@ -6,6 +6,7 @@ from prefect.client.schemas.schedules import CronSchedule
 from beacon_pipeline.config import load_settings
 from beacon_pipeline.ingest.airnow import ingest_airnow
 from beacon_pipeline.ingest.dob_permits import ingest_dob_permits
+from beacon_pipeline.ingest.mapillary import harvest_mapillary
 from beacon_pipeline.ingest.nws import ingest_nws
 from beacon_pipeline.ingest.openaq import ingest_openaq
 from beacon_pipeline.ingest.pollen import ingest_pollen
@@ -21,6 +22,7 @@ def run_job(job_name: str) -> int:
         "nws": lambda: ingest_nws(settings),
         "pollen": lambda: ingest_pollen(settings),
         "dob-permits": lambda: ingest_dob_permits(settings),
+        "mapillary": lambda: harvest_mapillary(settings),
         "construction-scores": lambda: refresh_construction_scores(settings.database_url),
         "hazard-fields": lambda: build_hazard_fields(settings),
     }
@@ -59,6 +61,11 @@ def hazard_fields_flow() -> int:
     return run_job("hazard-fields")
 
 
+@flow(name="harvest-mapillary")
+def mapillary_flow() -> int:
+    return run_job("mapillary")
+
+
 def serve_flows() -> None:
     timezone = "America/New_York"
     serve(
@@ -85,5 +92,9 @@ def serve_flows() -> None:
         hazard_fields_flow.to_deployment(
             name="every-15-minutes",
             schedule=CronSchedule(cron="12,27,42,57 * * * *", timezone=timezone),
+        ),
+        mapillary_flow.to_deployment(
+            name="weekly",
+            schedule=CronSchedule(cron="0 3 * * 0", timezone=timezone),
         ),
     )

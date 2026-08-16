@@ -15,6 +15,7 @@ class Settings:
     openaq_api_key: str | None
     airnow_api_key: str | None
     google_maps_key: str | None
+    mapillary_token: str | None
     nws_user_agent: str
     pollen_daily_call_budget: int
     nyccas_raster_dir: Path
@@ -31,6 +32,7 @@ def load_settings() -> Settings:
         openaq_api_key=os.getenv("OPENAQ_API_KEY") or None,
         airnow_api_key=os.getenv("AIRNOW_API_KEY") or None,
         google_maps_key=os.getenv("GOOGLE_MAPS_KEY") or None,
+        mapillary_token=os.getenv("MAPILLARY_TOKEN") or None,
         nws_user_agent=os.getenv(
             "NWS_USER_AGENT",
             "BeaconNavigationApp/0.1 (contact@example.com)",

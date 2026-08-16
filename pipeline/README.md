@@ -18,14 +18,28 @@ uv run beacon-pipeline serve
 
 The runner polls OpenAQ every 15 minutes, AirNow and NWS hourly, Google Pollen
 daily at 04:00 America/New_York, DOB permits nightly, and hazard fields every
-15 minutes. Pollen requests reserve a Redis-backed daily quota before each
-billed API call.
+15 minutes. The NoMad imagery corridor is refreshed weekly. Pollen requests
+reserve a Redis-backed daily quota before each billed API call.
 
 Place georeferenced `pm25.tif`, `no2.tif`, and `ozone.tif` NYCCAS priors in
 `NYCCAS_RASTER_DIR`. Each raster must use the same concentration unit as its
 OpenAQ readings. The field builder scales the prior by the current citywide
 mean, contours four fixed baseline severity bands, simplifies them at 50 m,
-and writes no more than 40 GraphHopper areas.
+and writes no more than 20 GraphHopper areas.
+
+## Street imagery
+
+Set `MAPILLARY_TOKEN`, start Postgres, and harvest the initial NoMad/Midtown
+South demo corridor with:
+
+```bash
+uv run beacon-pipeline harvest-mapillary
+```
+
+The harvester splits the corridor into zoom-16 tiles, requests image metadata
+in bounding boxes smaller than 0.01 degrees, deduplicates image IDs, and
+idempotently writes them to `street_image`. Pass `--bbox WEST SOUTH EAST NORTH`
+to target a different small corridor.
 
 Run the deterministic parser and raster tests with:
 

@@ -10,6 +10,10 @@ from beacon_pipeline.extract_segments import DEFAULT_OSM_PATH, extract_segments
 from beacon_pipeline.flows import serve_flows
 from beacon_pipeline.ingest.airnow import ingest_airnow
 from beacon_pipeline.ingest.dob_permits import ingest_dob_permits
+from beacon_pipeline.ingest.mapillary import (
+    NOMAD_DEMO_CORRIDOR_BBOX,
+    harvest_mapillary,
+)
 from beacon_pipeline.ingest.nws import ingest_nws
 from beacon_pipeline.ingest.openaq import ingest_openaq
 from beacon_pipeline.ingest.pollen import ingest_pollen
@@ -33,6 +37,7 @@ def main() -> None:
             "ingest-nws",
             "ingest-pollen",
             "ingest-dob-permits",
+            "harvest-mapillary",
             "refresh-construction-scores",
             "build-hazard-fields",
             "prepare-osm",
@@ -52,6 +57,13 @@ def main() -> None:
     parser.add_argument("--epa-data-dir", type=Path)
     parser.add_argument("--tri-year", type=int)
     parser.add_argument("--force-download", action="store_true")
+    parser.add_argument(
+        "--bbox",
+        type=float,
+        nargs=4,
+        metavar=("WEST", "SOUTH", "EAST", "NORTH"),
+        help="override the default Mapillary demo corridor",
+    )
     args = parser.parse_args()
 
     if args.job == "prepare-osm":
@@ -145,6 +157,11 @@ def main() -> None:
         count = ingest_pollen(settings)
     elif args.job == "ingest-dob-permits":
         count = ingest_dob_permits(settings)
+    elif args.job == "harvest-mapillary":
+        count = harvest_mapillary(
+            settings,
+            tuple(args.bbox) if args.bbox else NOMAD_DEMO_CORRIDOR_BBOX,
+        )
     elif args.job == "refresh-construction-scores":
         count = refresh_construction_scores(settings.database_url)
     else:

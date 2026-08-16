@@ -66,6 +66,10 @@ from the clear-day route. The live-stack demo also benchmarks the configured
 20-area budget and enforces a 200 ms p95 latency target. The builder prioritizes
 severe bands across hazards before applying that cap.
 
+Phase 5 steps 80-82 add the street-imagery schema and a weekly, zoom-16
+Mapillary harvester scoped to the NoMad/Midtown South demo corridor. The next
+roadmap step is snapping harvested images to their nearest route segment.
+
 ## Local development
 
 Prerequisites: Java 21, Python 3.12, `uv`, and Docker Desktop.

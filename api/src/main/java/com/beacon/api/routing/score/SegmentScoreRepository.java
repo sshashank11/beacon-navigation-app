@@ -21,6 +21,8 @@ public class SegmentScoreRepository {
               %s,
               %s,
               %s,
+              %s,
+              %s,
               %s
             FROM segment
             LEFT JOIN segment_static_score AS score ON score.segment_id = segment.id
@@ -36,7 +38,9 @@ public class SegmentScoreRepository {
             weightedAverage("shade_benefit"),
             weightedAverage("pollen_source"),
             weightedGrade(),
-            industrialWithin200m());
+            industrialWithin200m(),
+            weightedAverage("sky_view_factor"),
+            weightedAverage("crowd_prior"));
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -63,7 +67,9 @@ public class SegmentScoreRepository {
                 resultSet.getDouble(7),
                 resultSet.getDouble(8),
                 resultSet.getDouble(9),
-                resultSet.getDouble(10));
+                resultSet.getDouble(10),
+                resultSet.getDouble(11),
+                resultSet.getDouble(12));
     }
 
     private static String weightedAverage(String column) {

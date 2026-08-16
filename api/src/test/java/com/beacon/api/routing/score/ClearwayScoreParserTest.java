@@ -17,7 +17,7 @@ class ClearwayScoreParserTest {
     @Test
     void writesEveryPackedScoreToTheEdge() {
         SegmentScoreIndex index = new SegmentScoreIndex(1);
-        index.put(17L, 80, 70, 60, 50, 40, 30, 20, 10, 100);
+        index.put(17L, 80, 70, 60, 50, 40, 30, 20, 10, 100, 45, 65);
         Map<StaticScore, IntEncodedValue> encodedValues = encodedValues();
         EncodedValue.InitializerConfig initializer = new EncodedValue.InitializerConfig();
         encodedValues.values().forEach(value -> value.init(initializer));

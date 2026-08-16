@@ -8,6 +8,17 @@ public final class SegmentScoreIndex {
     static final int SCORE_MASK = (1 << BITS_PER_SCORE) - 1;
     private static final int FIRST_PACK_SIZE = 4;
     private static final int SECOND_PACK_SIZE = 4;
+    /** Four 7-bit scores are all that fit in one 32-bit pack. */
+    private static final int THIRD_PACK_SIZE = 4;
+    private static final int MAX_SCORES = FIRST_PACK_SIZE + SECOND_PACK_SIZE + THIRD_PACK_SIZE;
+
+    static {
+        if (StaticScore.values().length > MAX_SCORES) {
+            throw new IllegalStateException(
+                    "StaticScore has outgrown the three 7-bit packs (" + MAX_SCORES
+                            + " max); add a fourth pack before adding another score");
+        }
+    }
 
     private final LongIntHashMap firstPack;
     private final LongIntHashMap secondPack;

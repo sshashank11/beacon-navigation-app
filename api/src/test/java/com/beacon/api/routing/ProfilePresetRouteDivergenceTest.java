@@ -49,8 +49,8 @@ class ProfilePresetRouteDivergenceTest {
                 </osm>
                 """);
         SegmentScoreIndex scores = new SegmentScoreIndex(2);
-        scores.put(10, 95, 95, 95, 95, 0, 50, 0, 0, 0);
-        scores.put(20, 0, 0, 0, 0, 0, 50, 95, 0, 0);
+        scores.put(10, 95, 95, 95, 95, 0, 50, 0, 0, 0, 0, 0);
+        scores.put(20, 0, 0, 0, 0, 0, 50, 95, 0, 0, 0, 0);
         GraphHopper hopper = new RoutingConfig().graphHopper(
                 new RoutingProperties(osmPath.toString(), graphPath.toString()),
                 scores);

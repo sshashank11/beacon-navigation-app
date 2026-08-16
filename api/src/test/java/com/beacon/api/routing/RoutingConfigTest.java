@@ -35,7 +35,7 @@ class RoutingConfigTest {
         RoutingProperties properties = new RoutingProperties(osmPath.toString(), graphPath.toString());
         RoutingConfig configuration = new RoutingConfig();
         SegmentScoreIndex scores = new SegmentScoreIndex(1);
-        scores.put(10, 82, 61, 42, 73, 54, 35, 16, 7, 100);
+        scores.put(10, 82, 61, 42, 73, 54, 35, 16, 7, 100, 23, 91);
 
         GraphHopper imported = configuration.graphHopper(properties, scores);
         try {
@@ -50,10 +50,18 @@ class RoutingConfigTest {
                     StaticScore.PM25.encodedValueName())).isTrue();
             assertThat(imported.getEncodingManager().hasEncodedValue(
                     StaticScore.GRADE.encodedValueName())).isTrue();
+            assertThat(imported.getEncodingManager().hasEncodedValue(
+                    StaticScore.SKY_VIEW.encodedValueName())).isTrue();
+            assertThat(imported.getEncodingManager().hasEncodedValue(
+                    StaticScore.CROWD.encodedValueName())).isTrue();
             var edges = imported.getBaseGraph().getAllEdges();
             assertThat(edges.next()).isTrue();
             assertThat(edges.get(imported.getEncodingManager().getIntEncodedValue(
                     StaticScore.PM25.encodedValueName()))).isEqualTo(82);
+            assertThat(edges.get(imported.getEncodingManager().getIntEncodedValue(
+                    StaticScore.SKY_VIEW.encodedValueName()))).isEqualTo(23);
+            assertThat(edges.get(imported.getEncodingManager().getIntEncodedValue(
+                    StaticScore.CROWD.encodedValueName()))).isEqualTo(91);
         } finally {
             imported.close();
         }
@@ -69,6 +77,10 @@ class RoutingConfigTest {
             assertThat(edges.next()).isTrue();
             assertThat(edges.get(reloaded.getEncodingManager().getIntEncodedValue(
                     StaticScore.PM25.encodedValueName()))).isEqualTo(82);
+            assertThat(edges.get(reloaded.getEncodingManager().getIntEncodedValue(
+                    StaticScore.SKY_VIEW.encodedValueName()))).isEqualTo(23);
+            assertThat(edges.get(reloaded.getEncodingManager().getIntEncodedValue(
+                    StaticScore.CROWD.encodedValueName()))).isEqualTo(91);
         } finally {
             reloaded.close();
         }

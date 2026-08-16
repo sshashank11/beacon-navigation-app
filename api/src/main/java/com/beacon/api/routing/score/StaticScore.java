@@ -12,7 +12,11 @@ public enum StaticScore {
     SHADE("clw_shade"),
     POLLEN("clw_pollen"),
     GRADE("clw_grade"),
-    INDUSTRIAL_WITHIN_200M("clw_industrial_within_200m");
+    INDUSTRIAL_WITHIN_200M("clw_industrial_within_200m"),
+    /** Percentile of open sky overhead; a low value is a street canyon. */
+    SKY_VIEW("clw_svf"),
+    /** Percentile of vehicle and pedestrian pixel density from street imagery. */
+    CROWD("clw_crowd");
 
     private final String encodedValueName;
 

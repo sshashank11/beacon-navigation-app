@@ -106,7 +106,7 @@ export function RoutePlanner() {
         source: POINTS_SOURCE_ID,
         paint: {
           'circle-radius': 6,
-          'circle-color': ['match', ['get', 'kind'], 'origin', '#17745a', '#d45d4c'],
+          'circle-color': ['match', ['get', 'kind'], 'origin', '#168447', '#d45d4c'],
           'circle-stroke-color': '#ffffff',
           'circle-stroke-width': 1,
         },
@@ -189,11 +189,11 @@ export function RoutePlanner() {
         <div className="flex items-center justify-between border-b border-[#e1e6e3] px-5 py-4">
           <div>
             <p className="text-xs font-semibold uppercase text-[#6a776f]">Route planner</p>
-            <h1 className="mt-1 text-xl font-semibold text-[#18241d]">Choose your trip</h1>
+            <h1 className="mt-1 text-xl font-bold text-[#073b3a]">Choose your trip</h1>
           </div>
           <button
             type="button"
-            className="grid size-9 place-items-center text-[#536159] transition-colors hover:bg-[#edf2ef] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b54] disabled:opacity-40"
+            className="grid size-9 place-items-center text-[#536159] transition-colors hover:bg-[#edf2ef] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447] disabled:opacity-40"
             onClick={clearRoute}
             disabled={!points.origin && !points.destination}
             title="Clear route"
@@ -224,7 +224,7 @@ export function RoutePlanner() {
             />
             <button
               type="button"
-              className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center border border-[#d4dcd7] bg-white text-[#526159] shadow-sm transition-colors hover:bg-[#eef3f0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b54] disabled:opacity-40"
+              className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center border border-[#d4dcd7] bg-white text-[#526159] shadow-sm transition-colors hover:bg-[#eef3f0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447] disabled:opacity-40"
               onClick={swapPoints}
               disabled={!points.origin && !points.destination}
               title="Swap origin and destination"
@@ -245,7 +245,7 @@ export function RoutePlanner() {
         <div className="border-t border-[#e1e6e3] p-5">
           <button
             type="button"
-            className="flex h-12 w-full items-center justify-center gap-2 bg-[#176b54] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#115c47] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b54] disabled:cursor-not-allowed disabled:bg-[#a8b5ae]"
+            className="flex h-12 w-full items-center justify-center gap-2 bg-[#168447] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#106c3b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447] disabled:cursor-not-allowed disabled:bg-[#a8b5ae]"
             onClick={findRoute}
             disabled={!readyToRoute || routeMutation.isPending}
           >
@@ -278,7 +278,7 @@ function ModeButton({ mode, currentMode, icon: Icon, label, onSelect }: ModeButt
     <button
       type="button"
       className={`flex h-10 items-center justify-center gap-2 text-sm font-semibold transition-colors ${
-        selected ? 'bg-white text-[#176b54] shadow-sm' : 'text-[#637168] hover:text-[#26342c]'
+        selected ? 'bg-white text-[#168447] shadow-sm' : 'text-[#637168] hover:text-[#26342c]'
       }`}
       onClick={() => onSelect(mode)}
       aria-pressed={selected}
@@ -301,13 +301,13 @@ function PointButton({ kind, active, value, onSelect }: PointButtonProps) {
   return (
     <button
       type="button"
-      className={`flex h-16 w-full items-center gap-3 border px-3 pr-12 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b54] ${
-        active ? 'border-[#176b54] bg-[#f3f8f5]' : 'border-[#d5ddd8] bg-white hover:border-[#aebdb4]'
+      className={`flex h-16 w-full items-center gap-3 border px-3 pr-12 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447] ${
+        active ? 'border-[#168447] bg-[#f1f8f1]' : 'border-[#d5ddd8] bg-white hover:border-[#aebdb4]'
       }`}
       onClick={() => onSelect(kind)}
       aria-pressed={active}
     >
-      <span className={`grid size-8 shrink-0 place-items-center text-white ${isOrigin ? 'bg-[#17745a]' : 'bg-[#d45d4c]'}`}>
+      <span className={`grid size-8 shrink-0 place-items-center text-white ${isOrigin ? 'bg-[#168447]' : 'bg-[#d45d4c]'}`}>
         <MapPin className="size-4" aria-hidden />
       </span>
       <span className="min-w-0">
@@ -325,12 +325,12 @@ function RouteSummary({ route }: { route: RouteResponse }) {
     <div className="mt-5 border-y border-[#dce3df] py-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="flex items-center gap-3">
-          <span className="grid size-9 place-items-center bg-[#e2f0eb] text-[#176b54]">
+          <span className="grid size-9 place-items-center bg-[#e3f2df] text-[#168447]">
             <Navigation className="size-4" aria-hidden />
           </span>
           <div>
             <p className="text-xs text-[#718078]">Distance</p>
-            <p className="text-base font-semibold text-[#1d2a22]">{formatDistance(route.distance_m)}</p>
+            <p className="text-base font-semibold text-[#073b3a]">{formatDistance(route.distance_m)}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -339,7 +339,7 @@ function RouteSummary({ route }: { route: RouteResponse }) {
           </span>
           <div>
             <p className="text-xs text-[#718078]">Duration</p>
-            <p className="text-base font-semibold text-[#1d2a22]">{formatDuration(route.duration_s)}</p>
+            <p className="text-base font-semibold text-[#073b3a]">{formatDuration(route.duration_s)}</p>
           </div>
         </div>
       </div>

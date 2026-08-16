@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  color: #17211b;
+  font-family: "Manrope Variable", Manrope, ui-sans-serif, system-ui, sans-serif;
+  color: #073b3a;
   background: #f3f6f4;
   font-synthesis: none;
   text-rendering: optimizeLegibility;

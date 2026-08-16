@@ -55,7 +55,7 @@ export function ConditionsBanner() {
           </div>
           <button
             type="button"
-            className="grid size-10 shrink-0 place-items-center border border-[#cbd4cf] bg-white text-[#36483d] transition-colors hover:bg-[#edf2ef] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b54]"
+            className="grid size-10 shrink-0 place-items-center border border-[#cbd4cf] bg-white text-[#36483d] transition-colors hover:bg-[#edf2ef] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447]"
             onClick={() => void conditions.refetch()}
             title="Retry live conditions"
             aria-label="Retry live conditions"
@@ -81,7 +81,7 @@ export function ConditionsBanner() {
 
         <div className="col-start-2 row-start-1 min-w-0 self-center 2xl:col-auto 2xl:row-auto 2xl:min-w-[220px] 2xl:flex-1">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase text-[#607067]">
-            <CloudSun className="size-4 text-[#176b54]" aria-hidden="true" />
+            <CloudSun className="size-4 text-[#168447]" aria-hidden="true" />
             Live conditions
           </div>
           <p className="mt-1 line-clamp-2 text-sm font-medium leading-5 text-[#24322a] lg:line-clamp-1">
@@ -126,7 +126,7 @@ export function ConditionsBanner() {
           <span className="hidden text-xs text-[#6c786f] 2xl:inline">Updated {updatedAt}</span>
           <button
             type="button"
-            className="grid size-9 place-items-center text-[#526159] transition-colors hover:bg-[#e9efeb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#176b54]"
+            className="grid size-9 place-items-center text-[#526159] transition-colors hover:bg-[#e9efeb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447]"
             onClick={() => void conditions.refetch()}
             title="Refresh live conditions"
             aria-label="Refresh live conditions"
@@ -143,8 +143,13 @@ export function ConditionsBanner() {
 function Brand() {
   return (
     <div className="flex shrink-0 items-center gap-2" aria-label="Beacon">
-      <span className="grid size-8 place-items-center bg-[#176b54] text-sm font-bold text-white" aria-hidden="true">B</span>
-      <span className="text-base font-semibold text-[#17231d]">Beacon</span>
+      <img
+        src="/beacon-project-logo.png"
+        alt=""
+        className="size-10 rounded-full border border-[#b9d99a] bg-[#fbfae7] object-cover"
+        aria-hidden="true"
+      />
+      <span className="text-lg font-extrabold text-[#073b3a]">Beacon</span>
     </div>
   )
 }

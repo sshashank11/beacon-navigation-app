@@ -12,7 +12,7 @@
 
 body {
   margin: 0;
-  min-width: 320px;
+  min-width: 0;
   min-height: 100vh;
   overflow: hidden;
 }
@@ -27,6 +27,11 @@ button:disabled {
 
 .route-panel {
   width: 360px;
+}
+
+.route-map {
+  position: absolute;
+  inset: 0;
 }
 
 .maplibregl-ctrl-group {
@@ -44,16 +49,30 @@ button:disabled {
     overflow: auto;
   }
 
+  .app-shell {
+    height: auto;
+    min-height: 100vh;
+  }
+
   .route-workspace {
-    min-height: 720px;
-    flex-direction: column-reverse;
+    min-height: 0;
+    flex: none;
+    flex-direction: column;
   }
 
   .route-panel {
+    order: 2;
     width: 100%;
-    min-height: 430px;
+    min-height: 0;
     border-top: 1px solid #d4dcd7;
     border-right: 0;
+  }
+
+  .route-workspace > section {
+    order: 1;
+    height: 320px;
+    min-height: 320px;
+    flex: none;
   }
 }
 

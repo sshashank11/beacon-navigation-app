@@ -1,4 +1,6 @@
 export type RouteMode = 'foot' | 'bike'
+export type RouteVariant = 'fastest' | 'cleanest'
+export type HazardLayer = 'pm25' | 'no2' | 'ozone' | 'traffic' | 'industrial' | 'shade' | 'pollen'
 
 export type LatLng = [latitude: number, longitude: number]
 
@@ -6,6 +8,7 @@ export interface RouteRequest {
   origin: LatLng
   destination: LatLng
   mode: RouteMode
+  variant?: RouteVariant
 }
 
 export interface RouteInstruction {
@@ -27,6 +30,11 @@ export interface RouteResponse {
   instructions: RouteInstruction[]
 }
 
+export interface RouteComparison {
+  fastest: RouteResponse
+  cleanest: RouteResponse
+}
+
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
 export async function createRoute(request: RouteRequest): Promise<RouteResponse> {
@@ -45,4 +53,18 @@ export async function createRoute(request: RouteRequest): Promise<RouteResponse>
   }
 
   return response.json() as Promise<RouteResponse>
+}
+
+export async function createRouteComparison(
+  request: Omit<RouteRequest, 'variant'>,
+): Promise<RouteComparison> {
+  const [fastest, cleanest] = await Promise.all([
+    createRoute({ ...request, variant: 'fastest' }),
+    createRoute({ ...request, variant: 'cleanest' }),
+  ])
+  return { fastest, cleanest }
+}
+
+export function hazardTileUrl(hazard: HazardLayer): string {
+  return `${apiBaseUrl}/api/v1/tiles/hazard/${hazard}/{z}/{x}/{y}.mvt`
 }

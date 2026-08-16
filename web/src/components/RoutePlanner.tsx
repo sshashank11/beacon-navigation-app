@@ -4,6 +4,8 @@ import {
   Bike,
   Clock3,
   Footprints,
+  Layers3,
+  Leaf,
   LoaderCircle,
   MapPin,
   Navigation,
@@ -15,16 +17,32 @@ import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FeatureCollection, LineString, Point } from 'geojson'
 import {
-  createRoute,
+  createRouteComparison,
+  hazardTileUrl,
+  type HazardLayer,
   type LatLng,
   type RouteMode,
+  type RouteComparison,
   type RouteResponse,
+  type RouteVariant,
 } from '../api/routes'
 
 const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 const NEW_YORK_CENTER: [number, number] = [-73.9654, 40.7006]
 const POINTS_SOURCE_ID = 'route-points'
 const ROUTE_SOURCE_ID = 'route-line'
+const HAZARD_SOURCE_ID = 'hazard-tiles'
+const HAZARD_LAYER_ID = 'hazard-score-lines'
+
+const hazardOptions: { value: HazardLayer; label: string }[] = [
+  { value: 'pm25', label: 'PM2.5' },
+  { value: 'no2', label: 'NO2' },
+  { value: 'ozone', label: 'Ozone' },
+  { value: 'traffic', label: 'Traffic' },
+  { value: 'industrial', label: 'Industrial' },
+  { value: 'shade', label: 'Shade' },
+  { value: 'pollen', label: 'Tree pollen' },
+]
 
 type ActivePoint = 'origin' | 'destination'
 
@@ -46,9 +64,12 @@ export function RoutePlanner() {
   const [activePoint, setActivePoint] = useState<ActivePoint>('origin')
   const [points, setPoints] = useState<RoutePoints>({ origin: null, destination: null })
   const [mode, setMode] = useState<RouteMode>('foot')
+  const [selectedVariant, setSelectedVariant] = useState<RouteVariant>('cleanest')
+  const [hazardVisible, setHazardVisible] = useState(false)
+  const [hazard, setHazard] = useState<HazardLayer>('pm25')
 
   const routeMutation = useMutation({
-    mutationFn: createRoute,
+    mutationFn: createRouteComparison,
   })
   const resetRouteRef = useRef(routeMutation.reset)
   resetRouteRef.current = routeMutation.reset
@@ -138,7 +159,7 @@ export function RoutePlanner() {
     if (!mapReady || !map) return
 
     const source = map.getSource(ROUTE_SOURCE_ID) as GeoJSONSource | undefined
-    const data = routeFeatureCollection(routeMutation.data)
+    const data = routeFeatureCollection(routeMutation.data, selectedVariant)
 
     if (source) {
       source.setData(data)
@@ -149,23 +170,64 @@ export function RoutePlanner() {
         type: 'line',
         source: ROUTE_SOURCE_ID,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#ffffff', 'line-width': 9, 'line-opacity': 0.9 },
+        paint: {
+          'line-color': '#ffffff',
+          'line-width': ['case', ['get', 'selected'], 10, 7],
+          'line-opacity': ['case', ['get', 'selected'], 0.92, 0.65],
+        },
       }, 'route-points-halo')
       map.addLayer({
         id: 'route-line-fill',
         type: 'line',
         source: ROUTE_SOURCE_ID,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#116f8b', 'line-width': 5 },
+        paint: {
+          'line-color': ['match', ['get', 'variant'], 'cleanest', '#168447', '#116f8b'],
+          'line-width': ['case', ['get', 'selected'], 6, 3],
+          'line-opacity': ['case', ['get', 'selected'], 1, 0.62],
+        },
       }, 'route-points-halo')
     }
 
-    if (routeMutation.data) fitRoute(map, routeMutation.data)
-  }, [mapReady, routeMutation.data])
+    if (routeMutation.data) fitRoute(map, routeMutation.data[selectedVariant])
+  }, [mapReady, routeMutation.data, selectedVariant])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!mapReady || !map) return
+
+    if (map.getLayer(HAZARD_LAYER_ID)) map.removeLayer(HAZARD_LAYER_ID)
+    if (map.getSource(HAZARD_SOURCE_ID)) map.removeSource(HAZARD_SOURCE_ID)
+    if (!hazardVisible) return
+
+    map.addSource(HAZARD_SOURCE_ID, {
+      type: 'vector',
+      tiles: [hazardTileUrl(hazard)],
+      minzoom: 12,
+      maxzoom: 16,
+    })
+    map.addLayer({
+      id: HAZARD_LAYER_ID,
+      type: 'line',
+      source: HAZARD_SOURCE_ID,
+      'source-layer': 'hazard',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': hazardColorRamp(hazard),
+        'line-opacity': 0.52,
+        'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1, 16, 2.5],
+      },
+    }, map.getLayer('route-line-casing') ? 'route-line-casing' : 'route-points-halo')
+  }, [hazard, hazardVisible, mapReady])
 
   function findRoute() {
     if (!points.origin || !points.destination) return
     routeMutation.mutate({ origin: points.origin, destination: points.destination, mode })
+  }
+
+  function selectMode(nextMode: RouteMode) {
+    setMode(nextMode)
+    routeMutation.reset()
   }
 
   function swapPoints() {
@@ -176,6 +238,7 @@ export function RoutePlanner() {
   function clearRoute() {
     setPoints({ origin: null, destination: null })
     selectActivePoint('origin')
+    setSelectedVariant('cleanest')
     routeMutation.reset()
     const source = mapRef.current?.getSource(ROUTE_SOURCE_ID) as GeoJSONSource | undefined
     source?.setData(emptyFeatureCollection)
@@ -205,9 +268,16 @@ export function RoutePlanner() {
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
           <div className="grid grid-cols-2 border border-[#cfd8d2] bg-[#f2f5f3] p-1" aria-label="Travel mode">
-            <ModeButton mode="foot" currentMode={mode} icon={Footprints} label="Walk" onSelect={setMode} />
-            <ModeButton mode="bike" currentMode={mode} icon={Bike} label="Bike" onSelect={setMode} />
+            <ModeButton mode="foot" currentMode={mode} icon={Footprints} label="Walk" onSelect={selectMode} />
+            <ModeButton mode="bike" currentMode={mode} icon={Bike} label="Bike" onSelect={selectMode} />
           </div>
+
+          <HazardLayerControl
+            visible={hazardVisible}
+            hazard={hazard}
+            onVisibleChange={setHazardVisible}
+            onHazardChange={setHazard}
+          />
 
           <div className="relative mt-5 space-y-2">
             <PointButton
@@ -234,7 +304,13 @@ export function RoutePlanner() {
             </button>
           </div>
 
-          {routeMutation.data && <RouteSummary route={routeMutation.data} />}
+          {routeMutation.data && (
+            <RouteComparisonSummary
+              comparison={routeMutation.data}
+              selected={selectedVariant}
+              onSelect={setSelectedVariant}
+            />
+          )}
           {routeMutation.isError && (
             <p className="mt-4 border-l-2 border-[#b84d3e] bg-[#fff3f0] px-3 py-2 text-sm text-[#8d382d]" role="alert">
               No route was found for those points.
@@ -258,7 +334,7 @@ export function RoutePlanner() {
       </aside>
 
       <section className="relative min-h-[280px] min-w-0 flex-1" aria-label="Route map">
-        <div ref={mapContainerRef} className="absolute inset-0" />
+        <div ref={mapContainerRef} className="route-map" />
       </section>
     </main>
   )
@@ -286,6 +362,71 @@ function ModeButton({ mode, currentMode, icon: Icon, label, onSelect }: ModeButt
       <Icon className="size-4" aria-hidden />
       {label}
     </button>
+  )
+}
+
+interface HazardLayerControlProps {
+  visible: boolean
+  hazard: HazardLayer
+  onVisibleChange: (visible: boolean) => void
+  onHazardChange: (hazard: HazardLayer) => void
+}
+
+function HazardLayerControl({
+  visible,
+  hazard,
+  onVisibleChange,
+  onHazardChange,
+}: HazardLayerControlProps) {
+  const shade = hazard === 'shade'
+  return (
+    <div className="mt-4 border-y border-[#dce3df] py-4">
+      <div className="flex items-center gap-3">
+        <span className="grid size-9 shrink-0 place-items-center bg-[#e8efe9] text-[#376149]">
+          <Layers3 className="size-4" aria-hidden />
+        </span>
+        <label htmlFor="hazard-layer" className="min-w-0 flex-1 text-sm font-semibold text-[#243129]">
+          Hazard layer
+        </label>
+        <label className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center" title="Toggle hazard layer">
+          <input
+            id="hazard-layer"
+            type="checkbox"
+            className="peer sr-only"
+            checked={visible}
+            onChange={(event) => onVisibleChange(event.target.checked)}
+          />
+          <span className="absolute inset-0 bg-[#b8c4bd] transition-colors peer-checked:bg-[#168447] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#168447]" />
+          <span className="absolute left-1 size-4 bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
+        </label>
+      </div>
+      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_88px] items-center gap-3">
+        <select
+          className="h-10 min-w-0 border border-[#cfd8d2] bg-white px-3 text-sm font-medium text-[#2d3b33] outline-none focus:border-[#168447] disabled:bg-[#eef2ef] disabled:text-[#89948e]"
+          value={hazard}
+          onChange={(event) => onHazardChange(event.target.value as HazardLayer)}
+          disabled={!visible}
+          aria-label="Hazard shown on map"
+        >
+          {hazardOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+        <div className="min-w-0" aria-label={shade ? 'Low to high shade score' : 'Low to high hazard score'}>
+          <div
+            className="h-2 w-full"
+            style={{
+              background: shade
+                ? 'linear-gradient(90deg, #c24135, #e7b443, #218354)'
+                : 'linear-gradient(90deg, #218354, #e7b443, #c24135)',
+            }}
+          />
+          <div className="mt-1 flex justify-between text-[10px] font-semibold uppercase text-[#748078]">
+            <span>Low</span><span>High</span>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -320,30 +461,77 @@ function PointButton({ kind, active, value, onSelect }: PointButtonProps) {
   )
 }
 
-function RouteSummary({ route }: { route: RouteResponse }) {
+interface RouteComparisonSummaryProps {
+  comparison: RouteComparison
+  selected: RouteVariant
+  onSelect: (variant: RouteVariant) => void
+}
+
+function RouteComparisonSummary({ comparison, selected, onSelect }: RouteComparisonSummaryProps) {
+  const distanceDelta = comparison.fastest.distance_m === 0
+    ? 0
+    : (comparison.cleanest.distance_m / comparison.fastest.distance_m - 1) * 100
+
   return (
-    <div className="mt-5 border-y border-[#dce3df] py-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="flex items-center gap-3">
-          <span className="grid size-9 place-items-center bg-[#e3f2df] text-[#168447]">
-            <Navigation className="size-4" aria-hidden />
-          </span>
-          <div>
-            <p className="text-xs text-[#718078]">Distance</p>
-            <p className="text-base font-semibold text-[#073b3a]">{formatDistance(route.distance_m)}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="grid size-9 place-items-center bg-[#e6eef3] text-[#116f8b]">
-            <Clock3 className="size-4" aria-hidden />
-          </span>
-          <div>
-            <p className="text-xs text-[#718078]">Duration</p>
-            <p className="text-base font-semibold text-[#073b3a]">{formatDuration(route.duration_s)}</p>
-          </div>
-        </div>
+    <div className="mt-5 border-t border-[#dce3df] pt-4">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase text-[#6a776f]">Route options</p>
+        <p className="text-xs font-medium text-[#6d7a72]">{formatSignedPercent(distanceDelta)} distance</p>
       </div>
+      <RouteOption
+        variant="fastest"
+        label="Fastest"
+        icon={Navigation}
+        route={comparison.fastest}
+        selected={selected === 'fastest'}
+        onSelect={onSelect}
+      />
+      <RouteOption
+        variant="cleanest"
+        label="Lower PM2.5"
+        icon={Leaf}
+        route={comparison.cleanest}
+        selected={selected === 'cleanest'}
+        onSelect={onSelect}
+      />
     </div>
+  )
+}
+
+interface RouteOptionProps {
+  variant: RouteVariant
+  label: string
+  icon: typeof Navigation
+  route: RouteResponse
+  selected: boolean
+  onSelect: (variant: RouteVariant) => void
+}
+
+function RouteOption({ variant, label, icon: Icon, route, selected, onSelect }: RouteOptionProps) {
+  const color = variant === 'cleanest' ? '#168447' : '#116f8b'
+  return (
+    <button
+      type="button"
+      className={`mb-2 flex min-h-16 w-full items-center gap-3 border px-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447] ${
+        selected ? 'border-[#8aa99a] bg-[#f2f7f4]' : 'border-[#d7dfda] bg-white hover:border-[#aebdb4]'
+      }`}
+      onClick={() => onSelect(variant)}
+      aria-pressed={selected}
+    >
+      <span className="grid size-9 shrink-0 place-items-center text-white" style={{ backgroundColor: color }}>
+        <Icon className="size-4" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-[#243129]">{label}</span>
+        <span className="mt-0.5 flex items-center gap-3 text-xs text-[#68766e]">
+          <span>{formatDistance(route.distance_m)}</span>
+          <span className="inline-flex items-center gap-1">
+            <Clock3 className="size-3" aria-hidden />
+            {formatDuration(route.duration_s)}
+          </span>
+        </span>
+      </span>
+    </button>
   )
 }
 
@@ -362,12 +550,28 @@ function pointsFeatureCollection(points: RoutePoints): FeatureCollection<Point> 
   }
 }
 
-function routeFeatureCollection(route?: RouteResponse): FeatureCollection<LineString> {
-  if (!route) return { type: 'FeatureCollection', features: [] }
+function routeFeatureCollection(
+  comparison?: RouteComparison,
+  selected: RouteVariant = 'cleanest',
+): FeatureCollection<LineString> {
+  if (!comparison) return { type: 'FeatureCollection', features: [] }
+  const variants: RouteVariant[] = selected === 'fastest'
+    ? ['cleanest', 'fastest']
+    : ['fastest', 'cleanest']
   return {
     type: 'FeatureCollection',
-    features: [{ type: 'Feature', properties: {}, geometry: route.geometry }],
+    features: variants.map((variant) => ({
+      type: 'Feature',
+      properties: { variant, selected: variant === selected },
+      geometry: comparison[variant].geometry,
+    })),
   }
+}
+
+function hazardColorRamp(hazard: HazardLayer): maplibregl.ExpressionSpecification {
+  const low = hazard === 'shade' ? '#c24135' : '#218354'
+  const high = hazard === 'shade' ? '#218354' : '#c24135'
+  return ['interpolate', ['linear'], ['get', 'score'], 0, low, 50, '#e7b443', 100, high]
 }
 
 function fitRoute(map: MapLibreMap, route: RouteResponse) {
@@ -396,4 +600,9 @@ function formatDuration(seconds: number): string {
   const hours = Math.floor(minutes / 60)
   const remainder = minutes % 60
   return remainder ? `${hours} hr ${remainder} min` : `${hours} hr`
+}
+
+function formatSignedPercent(value: number): string {
+  if (Math.abs(value) < 0.05) return 'Same'
+  return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`
 }

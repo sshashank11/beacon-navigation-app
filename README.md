@@ -33,11 +33,20 @@ Static and slow data become segment-level scores baked into the routing graph. F
 
 ## Status
 
-The monorepo scaffolds are ready. The live environmental slice includes scheduled air quality, pollen, weather alert, and construction ingestion; PostGIS hazard fields; Redis-cached GraphHopper areas; and the conditions API. The base routing and trigger-profile phases still need to be connected before live areas can affect an end-to-end route.
+The backend now imports a five-borough OpenStreetMap graph and serves plain
+walking and cycling routes through embedded GraphHopper. The spatial pipeline
+maintains a PostGIS segment backbone with SQL-computed lengths and USGS 3DEP
+elevation grades. The live environmental slice includes scheduled air quality,
+pollen, weather alert, and construction ingestion; PostGIS hazard fields;
+Redis-cached GraphHopper areas; and the conditions API.
+
+The next implementation milestone is the MapLibre route UI. Static hazard
+scores and live areas exist as backend building blocks but are not yet applied
+to the route endpoint.
 
 ## Local development
 
-Prerequisites: Java 21 and Docker Desktop.
+Prerequisites: Java 21, Python 3.12, `uv`, and Docker Desktop.
 
 ```bash
 make up
@@ -52,3 +61,23 @@ five-borough extract at `data/osm/nyc.osm.pbf`. Docker is used for Osmium when
 the command is not installed locally.
 
 The API uses the root environment variables when present and otherwise connects to the local Beacon PostGIS database defined in `docker-compose.yml`. Once the stack and API are running, the health check is available at `http://localhost:8080/actuator/health`.
+
+## Route API
+
+`POST /api/v1/routes` accepts origin and destination arrays in
+`[latitude, longitude]` order. GeoJSON coordinates in the response follow the
+standard `[longitude, latitude]` order.
+
+```bash
+curl -X POST http://localhost:8080/api/v1/routes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "origin": [40.7484, -73.9857],
+    "destination": [40.7359, -73.9911],
+    "mode": "foot"
+  }'
+```
+
+Supported modes are `foot` and `bike`; common aliases such as `walk` and
+`cycling` are also accepted. The response contains a GeoJSON LineString,
+`distance_m`, `duration_s`, and GraphHopper instruction details.

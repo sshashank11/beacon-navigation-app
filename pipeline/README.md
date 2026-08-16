@@ -30,7 +30,7 @@ and writes no more than 40 GraphHopper areas.
 Run the deterministic parser and raster tests with:
 
 ```bash
-uv run python -m unittest discover -s tests -v
+uv run --with pytest pytest
 ```
 
 ## Routing data
@@ -48,3 +48,47 @@ from NYC Open Data, dissolves them into one boundary, and writes
 otherwise runs the pinned `docker.io/iboates/osmium:1.19.0` image. Source and
 generated map data are gitignored. Use `--force-download` only when the source
 PBF needs to be fetched again despite a matching checksum.
+
+## Segment backbone
+
+Start Postgres and boot the API once so Flyway creates the `segment` table:
+
+```bash
+make up
+make api
+```
+
+Then stream accessible walking and cycling ways from the clipped PBF into
+PostGIS:
+
+```bash
+cd pipeline
+uv run beacon-pipeline extract-segments \
+  --osm-path ../data/osm/nyc.osm.pbf
+```
+
+Osmium emits GeoJSON sequence records without loading the complete network
+into Python memory. Ways are filtered by access tags, divided into chunks no
+longer than 100 m, and loaded with Psycopg `COPY`. The database computes
+`length_m` with `ST_Length(geom::geography)` and maintains a GIST geometry
+index. Replacement is transactional, so the previous segment set remains if
+an import fails.
+
+The reference NYC import from August 15, 2026 produced 580,211 valid segments
+from 394,368 OSM ways. Median length was 52.33 m, maximum length was 99.25 m,
+and no geometries fell outside the configured NYC bounds.
+
+## Elevation grades
+
+Download and sample the two NYC-covering USGS 3DEP rasters with:
+
+```bash
+uv run beacon-pipeline enrich-elevation \
+  --dem-dir ../data/elevation
+```
+
+The command downloads the current `n41w074` and `n41w075` 1/3-arc-second
+GeoTIFFs from the public [USGS 3DEP collection](https://data.usgs.gov/datacatalog/data/USGS%3A3a81321b-c153-416f-98b7-cc8e5f0e17c3).
+Rasterio samples each segment endpoint, computes signed grade, and clamps DEM
+noise to +/-20%. The reference run graded all 580,211 segments; 0.473% reached
+the clamp, with the 5th and 95th percentiles at -3.60% and 3.56%.

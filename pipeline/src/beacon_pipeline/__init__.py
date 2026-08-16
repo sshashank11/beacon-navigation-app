@@ -38,6 +38,7 @@ def main() -> None:
             "ingest-pollen",
             "ingest-dob-permits",
             "harvest-mapillary",
+            "preview-segmentation",
             "refresh-construction-scores",
             "build-hazard-fields",
             "prepare-osm",
@@ -56,6 +57,14 @@ def main() -> None:
     parser.add_argument("--raster-dir", type=Path)
     parser.add_argument("--epa-data-dir", type=Path)
     parser.add_argument("--tri-year", type=int)
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("../data/vision-preview"),
+    )
+    parser.add_argument("--sample-limit", type=int, default=20)
+    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--device")
     parser.add_argument("--force-download", action="store_true")
     parser.add_argument(
         "--bbox",
@@ -146,6 +155,23 @@ def main() -> None:
             f"{result.exposed_segment_count:,}/{result.segment_count:,} segments "
             f"(max raw kernel {result.maximum_raw_kernel:.3f})"
         )
+        return
+    if args.job == "preview-segmentation":
+        from beacon_pipeline.vision.segmentation import preview_segmentations
+
+        result = preview_segmentations(
+            settings.database_url,
+            args.output_dir,
+            sample_limit=args.sample_limit,
+            batch_size=args.batch_size,
+            device=args.device,
+        )
+        print(
+            "preview-segmentation: rendered "
+            f"{result.sample_count} image(s) with {result.model_id} on "
+            f"{result.device} to {result.output_dir}"
+        )
+        print("detected classes: " + ", ".join(result.detected_classes))
         return
     if args.job == "ingest-openaq":
         count = ingest_openaq(settings)

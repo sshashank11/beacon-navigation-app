@@ -37,9 +37,27 @@ uv run beacon-pipeline harvest-mapillary
 ```
 
 The harvester splits the corridor into zoom-16 tiles, requests image metadata
-in bounding boxes smaller than 0.01 degrees, deduplicates image IDs, and
-idempotently writes them to `street_image`. Pass `--bbox WEST SOUTH EAST NORTH`
-to target a different small corridor.
+in bounding boxes smaller than 0.01 degrees, and deduplicates image IDs. Each
+image is snapped to its nearest route segment with a PostGIS KNN search and
+exact closest-point distance; images farther than 25 m are discarded. Pass
+`--bbox WEST SOUTH EAST NORTH` to target a different small corridor.
+
+Install the optional model environment and render the required 20-image
+SegFormer review set with:
+
+```bash
+uv sync --extra vision
+uv run --extra vision beacon-pipeline preview-segmentation \
+  --output-dir ../data/vision-preview
+```
+
+The command loads
+`nvidia/segformer-b0-finetuned-cityscapes-1024-1024`, processes snapped images
+in batches of four, and writes side-by-side originals and masks plus a
+`manifest.json` class summary. Use `--device cuda` when CUDA is available, or
+leave it unset for automatic CUDA/CPU selection. The fine-tuning decision and
+construction-class limitation are recorded in
+[`docs/segformer-baseline.md`](docs/segformer-baseline.md).
 
 Run the deterministic parser and raster tests with:
 

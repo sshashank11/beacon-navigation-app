@@ -95,6 +95,8 @@ def upsert_street_images(database_url: str, images: Iterable[StreetImage]) -> in
     if not rows:
         return 0
 
+    mapillary_ids = list(dict.fromkeys(row.mapillary_id for row in rows))
+
     with psycopg.connect(database_url) as conn:
         with conn.cursor() as cur:
             cur.executemany(
@@ -109,6 +111,7 @@ def upsert_street_images(database_url: str, images: Iterable[StreetImage]) -> in
                   compass_angle = EXCLUDED.compass_angle,
                   captured_at = EXCLUDED.captured_at,
                   thumb_url = EXCLUDED.thumb_url,
+                  nearest_segment_id = NULL,
                   harvested_at = now()
                 """,
                 [
@@ -123,8 +126,55 @@ def upsert_street_images(database_url: str, images: Iterable[StreetImage]) -> in
                     for row in rows
                 ],
             )
+            cur.execute(
+                """
+                WITH nearest AS (
+                  SELECT
+                    image.mapillary_id,
+                    candidate.segment_id,
+                    candidate.distance_m
+                  FROM street_image image
+                  CROSS JOIN LATERAL (
+                    SELECT
+                      segment.id AS segment_id,
+                      ST_Distance(
+                        image.geom::geography,
+                        ST_ClosestPoint(segment.geom, image.geom)::geography
+                      ) AS distance_m
+                    FROM segment
+                    ORDER BY segment.geom <-> image.geom
+                    LIMIT 1
+                  ) candidate
+                  WHERE image.mapillary_id = ANY(%s)
+                )
+                UPDATE street_image image
+                SET nearest_segment_id = nearest.segment_id
+                FROM nearest
+                WHERE image.mapillary_id = nearest.mapillary_id
+                  AND nearest.distance_m <= 25
+                """,
+                (mapillary_ids,),
+            )
+            cur.execute(
+                """
+                SELECT count(*)
+                FROM street_image
+                WHERE mapillary_id = ANY(%s)
+                  AND nearest_segment_id IS NOT NULL
+                """,
+                (mapillary_ids,),
+            )
+            accepted_count = int(cur.fetchone()[0])
+            cur.execute(
+                """
+                DELETE FROM street_image
+                WHERE mapillary_id = ANY(%s)
+                  AND nearest_segment_id IS NULL
+                """,
+                (mapillary_ids,),
+            )
         conn.commit()
-    return len(rows)
+    return accepted_count
 
 
 def replace_nws_alerts(database_url: str, alerts: Iterable[NwsAlert]) -> int:

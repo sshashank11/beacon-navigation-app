@@ -66,9 +66,12 @@ from the clear-day route. The live-stack demo also benchmarks the configured
 20-area budget and enforces a 200 ms p95 latency target. The builder prioritizes
 severe bands across hazards before applying that cap.
 
-Phase 5 steps 80-82 add the street-imagery schema and a weekly, zoom-16
-Mapillary harvester scoped to the NoMad/Midtown South demo corridor. The next
-roadmap step is snapping harvested images to their nearest route segment.
+Phase 5 steps 80-86 add the street-imagery schema and a weekly, zoom-16
+Mapillary harvester scoped to the NoMad/Midtown South demo corridor. Harvested
+images are snapped to the nearest route segment and rejected beyond 25 m. An
+optional SegFormer environment renders 20-image Cityscapes segmentation
+previews and records detected class fractions for review. Fine-tuning remains
+deferred until the baseline scoring pipeline can be evaluated end to end.
 
 ## Local development
 

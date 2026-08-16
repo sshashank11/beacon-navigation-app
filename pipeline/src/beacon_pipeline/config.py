@@ -4,6 +4,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from dotenv import find_dotenv, load_dotenv
+
 
 NYC_BBOX = (-74.25909, 40.477399, -73.700272, 40.917577)
 
@@ -26,6 +28,7 @@ class Settings:
 
 
 def load_settings() -> Settings:
+    load_repository_env()
     return Settings(
         database_url=_pipeline_database_url(),
         redis_url=os.getenv("REDIS_URL", "redis://localhost:6379"),
@@ -46,6 +49,21 @@ def load_settings() -> Settings:
         tri_reporting_year=int(os.getenv("TRI_REPORTING_YEAR", "2024")),
         nyc_open_data_app_token=os.getenv("NYC_OPEN_DATA_APP_TOKEN") or None,
     )
+
+
+def load_repository_env() -> str | None:
+    """Load the repository ``.env`` so provider keys reach ``os.environ``.
+
+    Jobs are run from ``pipeline/`` but ``.env`` lives at the repository root,
+    so the file is searched for upward from the working directory. Real
+    environment variables win, which keeps CI and shell overrides authoritative.
+    """
+    env_path = find_dotenv(usecwd=True)
+    if not env_path:
+        return None
+
+    load_dotenv(env_path, override=False)
+    return env_path
 
 
 def _pipeline_database_url() -> str:

@@ -33,16 +33,24 @@ Static and slow data become segment-level scores baked into the routing graph. F
 
 ## Status
 
-The backend now imports a five-borough OpenStreetMap graph and serves plain
-walking and cycling routes through embedded GraphHopper. The spatial pipeline
-maintains a PostGIS segment backbone with SQL-computed lengths and USGS 3DEP
-elevation grades. The live environmental slice includes scheduled air quality,
-pollen, weather alert, and construction ingestion; PostGIS hazard fields;
-Redis-cached GraphHopper areas; and the conditions API.
+Beacon currently provides a branded React and MapLibre route planner for
+choosing an origin, destination, and walking or cycling mode. The Spring Boot
+API imports the five-borough OpenStreetMap network into embedded GraphHopper
+and returns route geometry, distance, duration, and turn instructions.
 
-The next implementation milestone is the MapLibre route UI. Static hazard
-scores and live areas exist as backend building blocks but are not yet applied
-to the route endpoint.
+The PostGIS pipeline maintains 580,211 routable segments from 394,368 OSM ways
+with SQL-computed lengths and USGS 3DEP elevation grades. It now calculates
+0-100 percentile scores for NYCCAS PM2.5, NO2, and ozone; street-tree shade and
+pollen; EPA industrial-facility proximity; and OSM high-class-road traffic
+proximity. GraphHopper imports length-weighted way averages as seven 7-bit
+encoded values. The reference graph contains 1,132,204 edges, of which
+1,074,495 have at least one nonzero static score.
+
+Scheduled air quality, pollen, weather alert, and construction ingestion,
+PostGIS hazard fields, Redis-cached GraphHopper areas, and the conditions API
+are also implemented. The next roadmap work begins at step 41: apply a PM2.5
+penalty with a GraphHopper `CustomModel` and prove that the health-aware route
+diverges from the shortest route before adding the map hazard overlay.
 
 ## Local development
 
@@ -60,7 +68,40 @@ make web
 five-borough extract at `data/osm/nyc.osm.pbf`. Docker is used for Osmium when
 the command is not installed locally.
 
-The API uses the root environment variables when present and otherwise connects to the local Beacon PostGIS database defined in `docker-compose.yml`. Once the stack and API are running, the health check is available at `http://localhost:8080/actuator/health`.
+The API uses the root environment variables when present and otherwise connects
+to the local Beacon PostGIS database defined in `docker-compose.yml`. Once the
+stack and API are running, the health check is available at
+`http://localhost:8080/actuator/health`, and the web app is available at
+`http://localhost:5173`.
+
+## Static score build
+
+After the segment and elevation jobs documented in `pipeline/README.md`, run
+the current static scoring jobs from `pipeline/`:
+
+```bash
+uv run beacon-pipeline refresh-nyccas-scores --raster-dir ../data/nyccas
+uv run beacon-pipeline refresh-street-tree-scores
+uv run beacon-pipeline refresh-industrial-scores --epa-data-dir ../data/epa
+uv run beacon-pipeline refresh-traffic-scores --osm-path ../data/osm/nyc.osm.pbf
+```
+
+The industrial job downloads public EPA TRI and ECHO data. The traffic job
+uses motorway, trunk, primary, and secondary OSM roads with class-weighted
+distance decay. Both jobs preserve their raw proximity measurements and write
+comparable percentile ranks to `segment_static_score`.
+
+Static scores are written during GraphHopper import. Stop the API and remove
+`graph-cache/` after refreshing score data or changing encoded-value definitions,
+then start the API again to force a complete graph rebuild. Startup logs report
+the indexed OSM way count and number of graph edges carrying nonzero scores.
+
+Run the backend and pipeline test suites with:
+
+```bash
+cd api && ./gradlew test
+cd ../pipeline && uv run --with pytest pytest
+```
 
 ## Route API
 

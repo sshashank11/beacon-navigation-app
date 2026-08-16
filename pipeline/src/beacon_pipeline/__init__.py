@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 from beacon_pipeline.config import load_settings
+from beacon_pipeline.elevation import enrich_segment_elevation
 from beacon_pipeline.extract_segments import DEFAULT_OSM_PATH, extract_segments
 from beacon_pipeline.flows import serve_flows
 from beacon_pipeline.ingest.airnow import ingest_airnow
@@ -29,11 +30,13 @@ def main() -> None:
             "build-hazard-fields",
             "prepare-osm",
             "extract-segments",
+            "enrich-elevation",
             "serve",
         ],
     )
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_OSM_DATA_DIR)
     parser.add_argument("--osm-path", type=Path, default=DEFAULT_OSM_PATH)
+    parser.add_argument("--dem-dir", type=Path)
     parser.add_argument("--force-download", action="store_true")
     args = parser.parse_args()
 
@@ -53,6 +56,19 @@ def main() -> None:
             "extract-segments: wrote "
             f"{result.segment_count:,} segments from {result.way_count:,} ways "
             f"(max {result.maximum_length_m:.2f}m, avg {result.average_length_m:.2f}m)"
+        )
+        return
+    if args.job == "enrich-elevation":
+        result = enrich_segment_elevation(
+            settings.database_url,
+            args.dem_dir or settings.elevation_raster_dir,
+            force_download=args.force_download,
+        )
+        print(
+            "enrich-elevation: graded "
+            f"{result.graded_count:,}/{result.segment_count:,} segments "
+            f"({result.minimum_grade_pct:.2f}% to {result.maximum_grade_pct:.2f}%, "
+            f"{result.clamped_count:,} clamped)"
         )
         return
     if args.job == "ingest-openaq":

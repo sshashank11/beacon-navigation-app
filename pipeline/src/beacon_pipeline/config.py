@@ -18,6 +18,7 @@ class Settings:
     nws_user_agent: str
     pollen_daily_call_budget: int
     nyccas_raster_dir: Path
+    elevation_raster_dir: Path
     nyc_open_data_app_token: str | None
 
 
@@ -34,6 +35,9 @@ def load_settings() -> Settings:
         ),
         pollen_daily_call_budget=int(os.getenv("POLLEN_DAILY_CALL_BUDGET", "60")),
         nyccas_raster_dir=Path(os.getenv("NYCCAS_RASTER_DIR", "../data/nyccas")),
+        elevation_raster_dir=Path(
+            os.getenv("ELEVATION_RASTER_DIR", "../data/elevation")
+        ),
         nyc_open_data_app_token=os.getenv("NYC_OPEN_DATA_APP_TOKEN") or None,
     )
 

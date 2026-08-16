@@ -34,6 +34,28 @@ class RouteControllerTest {
         assertThat(request.getValue().getPoints()).extracting("lat", "lon").containsExactly(
                 org.assertj.core.groups.Tuple.tuple(40.7500, -73.9900),
                 org.assertj.core.groups.Tuple.tuple(40.7600, -73.9800));
+        assertThat(request.getValue().getCustomModel()).isNull();
+    }
+
+    @Test
+    void createAppliesPm25ModelToCleanestVariant() {
+        RouteService routeService = mock(RouteService.class);
+        when(routeService.route(any(GHRequest.class))).thenReturn(mock(RouteResponse.class));
+        RouteController controller = new RouteController(routeService);
+
+        controller.create(new RouteRequest(
+                List.of(40.7500, -73.9900),
+                List.of(40.7600, -73.9800),
+                RouteMode.FOOT,
+                RouteVariant.CLEANEST));
+
+        ArgumentCaptor<GHRequest> request = ArgumentCaptor.forClass(GHRequest.class);
+        verify(routeService).route(request.capture());
+        assertThat(request.getValue().getCustomModel().getPriority()).singleElement()
+                .satisfies(statement -> {
+                    assertThat(statement.condition()).isEqualTo("clw_pm25 > 70");
+                    assertThat(statement.value()).isEqualTo("0.4");
+                });
     }
 
     @Test

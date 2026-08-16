@@ -34,6 +34,7 @@ public class RouteController {
                 routeRequest.destination().get(1))
                 .setProfile(routeRequest.mode().profile())
                 .setLocale("en-US");
+        routeRequest.variant().configure(request);
         return routeService.route(request);
     }
 

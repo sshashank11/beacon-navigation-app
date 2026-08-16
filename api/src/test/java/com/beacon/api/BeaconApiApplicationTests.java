@@ -28,4 +28,10 @@ class BeaconApiApplicationTests {
 				.andExpect(jsonPath("$.status").value("UP"));
 	}
 
+	@Test
+	void invalidPublicTileRequestReturnsBadRequestWithoutAuthentication() throws Exception {
+		mockMvc.perform(get("/api/v1/tiles/hazard/noise/12/1206/1540.mvt"))
+				.andExpect(status().isBadRequest());
+	}
+
 }

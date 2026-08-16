@@ -14,8 +14,13 @@ public class SecurityConfiguration {
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                        .requestMatchers("/api/v1/conditions/**", "/api/v1/hazard-fields/**", "/api/v1/routes/**")
+                        .requestMatchers(
+                                "/api/v1/conditions/**",
+                                "/api/v1/hazard-fields/**",
+                                "/api/v1/routes/**",
+                                "/api/v1/tiles/**")
                         .permitAll()
                         .anyRequest().authenticated())
                 .csrf(AbstractHttpConfigurer::disable)

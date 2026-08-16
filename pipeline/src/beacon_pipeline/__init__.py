@@ -190,11 +190,15 @@ def main() -> None:
             score_unscored_images,
         )
 
+        def report(done: int, total: int) -> None:
+            print(f"score-images: {done:,}/{total:,} scored", flush=True)
+
         scored = score_unscored_images(
             settings.database_url,
             limit=args.limit,
             batch_size=args.batch_size or DEFAULT_BATCH_SIZE,
             device=args.device,
+            progress=report,
         )
         print(
             "score-images: scored "

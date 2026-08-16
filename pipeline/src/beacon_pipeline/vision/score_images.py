@@ -16,7 +16,7 @@ would be a fabricated signal.
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 import httpx
@@ -187,34 +187,45 @@ def score_unscored_images(
     device: str | None = None,
     segmenter: SemanticSegmenter | None = None,
     client: httpx.Client | None = None,
+    progress: Callable[[int, int], None] | None = None,
 ) -> ScoreImagesResult:
     """Score every snapped image not yet analysed under ``model_version``.
 
     Images already scored under this version are skipped, so the job is safe to
     re-run and only pays for inference once per checkpoint.
+
+    Work streams one batch at a time: a corridor harvest is tens of thousands
+    of frames, and holding them all as decoded bitmaps would exhaust memory.
+    Each batch is persisted before the next is fetched, so an interrupted run
+    keeps everything it finished and resumes where it stopped.
     """
     references = load_unscored_images(database_url, model_version, limit)
     if not references:
         return ScoreImagesResult(0, 0, model_version, "", "")
 
+    active_segmenter = segmenter or SegformerSegmenter.load(device=device)
     owns_client = client is None
     image_client = client or httpx.Client(
         timeout=30.0,
         follow_redirects=True,
         headers={"User-Agent": "BeaconNavigationApp/0.1"},
     )
+    scored = 0
     try:
-        samples = [
-            (reference, download_image(image_client, reference.thumb_url))
-            for reference in references
-        ]
+        for offset in range(0, len(references), batch_size):
+            chunk = references[offset : offset + batch_size]
+            samples = [
+                (reference, download_image(image_client, reference.thumb_url))
+                for reference in chunk
+            ]
+            metrics = score_frames(samples, active_segmenter, batch_size=batch_size)
+            scored += persist_frame_metrics(database_url, metrics, model_version)
+            if progress is not None:
+                progress(scored, len(references))
     finally:
         if owns_client:
             image_client.close()
 
-    active_segmenter = segmenter or SegformerSegmenter.load(device=device)
-    metrics = score_frames(samples, active_segmenter, batch_size=batch_size)
-    scored = persist_frame_metrics(database_url, metrics, model_version)
     return ScoreImagesResult(
         scored_count=scored,
         pending_count=count_unscored_images(database_url, model_version),

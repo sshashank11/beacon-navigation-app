@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import unittest
 from collections.abc import Sequence
+from io import BytesIO
+from unittest import mock
 
+import httpx
 import numpy as np
 from PIL import Image
 
+from beacon_pipeline.vision import score_images as score_images_module
 from beacon_pipeline.vision.score_images import (
     PERSON_CLASSES,
     VEHICLE_CLASSES,
@@ -159,6 +163,65 @@ class ScoreFramesTest(unittest.TestCase):
     def test_rejects_a_non_positive_batch_size(self) -> None:
         with self.assertRaisesRegex(ValueError, "batch_size must be positive"):
             score_frames(self._samples(1), FakeSegmenter([]), batch_size=0)
+
+
+class StreamingScoreRunTest(unittest.TestCase):
+    """score_unscored_images must never hold the whole corridor in memory."""
+
+    def test_downloads_and_persists_one_batch_at_a_time(self) -> None:
+        total = 10
+        batch_size = 4
+        references = [
+            ImageReference(str(index), f"https://images.example/{index}.jpg")
+            for index in range(total)
+        ]
+        live_downloads: list[int] = []
+        persisted: list[int] = []
+
+        def handle(request: httpx.Request) -> httpx.Response:
+            live_downloads.append(len(live_downloads))
+            buffer = BytesIO()
+            Image.new("RGB", (8, 6)).save(buffer, format="PNG")
+            return httpx.Response(200, content=buffer.getvalue())
+
+        segmenter = FakeSegmenter([np.zeros((6, 8), dtype=np.int64)] * total)
+
+        with (
+            mock.patch.object(
+                score_images_module, "load_unscored_images", return_value=references
+            ),
+            mock.patch.object(
+                score_images_module, "count_unscored_images", return_value=0
+            ),
+            mock.patch.object(
+                score_images_module,
+                "persist_frame_metrics",
+                side_effect=lambda url, metrics, version: (
+                    persisted.append(len(metrics)) or len(metrics)
+                ),
+            ),
+            httpx.Client(transport=httpx.MockTransport(handle)) as client,
+        ):
+            result = score_images_module.score_unscored_images(
+                "postgresql://unused",
+                batch_size=batch_size,
+                segmenter=segmenter,
+                client=client,
+            )
+
+        self.assertEqual(result.scored_count, total)
+        # Persisted per batch rather than once at the end.
+        self.assertEqual(persisted, [4, 4, 2])
+        self.assertEqual(segmenter.batch_sizes, [4, 4, 2])
+
+    def test_no_pending_images_does_no_work(self) -> None:
+        with mock.patch.object(
+            score_images_module, "load_unscored_images", return_value=[]
+        ):
+            result = score_images_module.score_unscored_images("postgresql://unused")
+
+        self.assertEqual(result.scored_count, 0)
+        self.assertEqual(result.model_id, "")
 
 
 if __name__ == "__main__":

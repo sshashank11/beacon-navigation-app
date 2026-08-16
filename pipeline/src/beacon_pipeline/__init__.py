@@ -5,6 +5,7 @@ from pathlib import Path
 
 from beacon_pipeline.config import load_settings
 from beacon_pipeline.elevation import enrich_segment_elevation
+from beacon_pipeline.epa_facilities import refresh_industrial_scores
 from beacon_pipeline.extract_segments import DEFAULT_OSM_PATH, extract_segments
 from beacon_pipeline.flows import serve_flows
 from beacon_pipeline.ingest.airnow import ingest_airnow
@@ -38,6 +39,7 @@ def main() -> None:
             "enrich-elevation",
             "refresh-nyccas-scores",
             "refresh-street-tree-scores",
+            "refresh-industrial-scores",
             "serve",
         ],
     )
@@ -45,6 +47,8 @@ def main() -> None:
     parser.add_argument("--osm-path", type=Path, default=DEFAULT_OSM_PATH)
     parser.add_argument("--dem-dir", type=Path)
     parser.add_argument("--raster-dir", type=Path)
+    parser.add_argument("--epa-data-dir", type=Path)
+    parser.add_argument("--tri-year", type=int)
     parser.add_argument("--force-download", action="store_true")
     args = parser.parse_args()
 
@@ -104,6 +108,20 @@ def main() -> None:
             f"({result.allergenic_tree_count:,} allergenic); scored "
             f"{result.shaded_segment_count:,}/{result.segment_count:,} segments "
             f"for shade and {result.pollen_segment_count:,} for pollen"
+        )
+        return
+    if args.job == "refresh-industrial-scores":
+        result = refresh_industrial_scores(
+            settings,
+            data_dir=args.epa_data_dir,
+            reporting_year=args.tri_year,
+            force_download=args.force_download,
+        )
+        print(
+            "refresh-industrial-scores: loaded "
+            f"{result.facility_count:,} EPA facilities; scored "
+            f"{result.exposed_segment_count:,}/{result.segment_count:,} segments "
+            f"(max raw kernel {result.maximum_raw_kernel:.3f})"
         )
         return
     if args.job == "ingest-openaq":

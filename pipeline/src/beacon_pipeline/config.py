@@ -19,6 +19,8 @@ class Settings:
     pollen_daily_call_budget: int
     nyccas_raster_dir: Path
     elevation_raster_dir: Path
+    epa_data_dir: Path
+    tri_reporting_year: int
     nyc_open_data_app_token: str | None
 
 
@@ -38,6 +40,8 @@ def load_settings() -> Settings:
         elevation_raster_dir=Path(
             os.getenv("ELEVATION_RASTER_DIR", "../data/elevation")
         ),
+        epa_data_dir=Path(os.getenv("EPA_DATA_DIR", "../data/epa")),
+        tri_reporting_year=int(os.getenv("TRI_REPORTING_YEAR", "2024")),
         nyc_open_data_app_token=os.getenv("NYC_OPEN_DATA_APP_TOKEN") or None,
     )
 

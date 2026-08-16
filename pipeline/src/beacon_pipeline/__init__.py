@@ -20,6 +20,7 @@ from beacon_pipeline.model.hazard_fields import (
 from beacon_pipeline.nyccas import refresh_nyccas_scores
 from beacon_pipeline.osm import DEFAULT_OSM_DATA_DIR, prepare_osm_data
 from beacon_pipeline.street_trees import refresh_street_tree_scores
+from beacon_pipeline.traffic import refresh_traffic_scores
 
 
 def main() -> None:
@@ -40,6 +41,7 @@ def main() -> None:
             "refresh-nyccas-scores",
             "refresh-street-tree-scores",
             "refresh-industrial-scores",
+            "refresh-traffic-scores",
             "serve",
         ],
     )
@@ -120,6 +122,15 @@ def main() -> None:
         print(
             "refresh-industrial-scores: loaded "
             f"{result.facility_count:,} EPA facilities; scored "
+            f"{result.exposed_segment_count:,}/{result.segment_count:,} segments "
+            f"(max raw kernel {result.maximum_raw_kernel:.3f})"
+        )
+        return
+    if args.job == "refresh-traffic-scores":
+        result = refresh_traffic_scores(settings.database_url, args.osm_path)
+        print(
+            "refresh-traffic-scores: loaded "
+            f"{result.road_count:,} weighted OSM roads; scored "
             f"{result.exposed_segment_count:,}/{result.segment_count:,} segments "
             f"(max raw kernel {result.maximum_raw_kernel:.3f})"
         )

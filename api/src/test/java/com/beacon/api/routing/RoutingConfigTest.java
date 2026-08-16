@@ -2,6 +2,8 @@ package com.beacon.api.routing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.beacon.api.routing.score.SegmentScoreIndex;
+import com.beacon.api.routing.score.StaticScore;
 import com.graphhopper.GraphHopper;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -32,8 +34,10 @@ class RoutingConfigTest {
                 """);
         RoutingProperties properties = new RoutingProperties(osmPath.toString(), graphPath.toString());
         RoutingConfig configuration = new RoutingConfig();
+        SegmentScoreIndex scores = new SegmentScoreIndex(1);
+        scores.put(10, 82, 61, 42, 73, 54, 35, 16);
 
-        GraphHopper imported = configuration.graphHopper(properties);
+        GraphHopper imported = configuration.graphHopper(properties, scores);
         try {
             assertThat(imported.getFullyLoaded()).isTrue();
             assertThat(imported.getProfiles()).extracting("name").containsExactly("foot", "bike");
@@ -42,6 +46,12 @@ class RoutingConfigTest {
                 assertThat(profile.getCustomModel().getSpeed()).isNotEmpty();
             });
             assertThat(imported.getBaseGraph().getEdges()).isPositive();
+            assertThat(imported.getEncodingManager().hasEncodedValue(
+                    StaticScore.PM25.encodedValueName())).isTrue();
+            var edges = imported.getBaseGraph().getAllEdges();
+            assertThat(edges.next()).isTrue();
+            assertThat(edges.get(imported.getEncodingManager().getIntEncodedValue(
+                    StaticScore.PM25.encodedValueName()))).isEqualTo(82);
         } finally {
             imported.close();
         }
@@ -49,10 +59,14 @@ class RoutingConfigTest {
         assertThat(graphPath).isDirectory();
         assertThat(graphPath.resolve("properties")).isRegularFile();
 
-        GraphHopper reloaded = configuration.graphHopper(properties);
+        GraphHopper reloaded = configuration.graphHopper(properties, scores);
         try {
             assertThat(reloaded.getFullyLoaded()).isTrue();
             assertThat(reloaded.getBaseGraph().getEdges()).isPositive();
+            var edges = reloaded.getBaseGraph().getAllEdges();
+            assertThat(edges.next()).isTrue();
+            assertThat(edges.get(reloaded.getEncodingManager().getIntEncodedValue(
+                    StaticScore.PM25.encodedValueName()))).isEqualTo(82);
         } finally {
             reloaded.close();
         }

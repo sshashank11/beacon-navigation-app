@@ -1,7 +1,12 @@
 package com.beacon.api.routing;
 
+import com.beacon.api.routing.score.ClearwayImportRegistry;
+import com.beacon.api.routing.score.SegmentScoreIndex;
+import com.beacon.api.routing.score.SegmentScoreRepository;
+import com.beacon.api.routing.score.StaticScore;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.config.Profile;
+import com.graphhopper.routing.ev.IntEncodedValue;
 import com.graphhopper.util.JsonFeatureCollection;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -33,10 +38,24 @@ public class RoutingConfig {
             "country",
             "road_class",
             "foot_road_access",
-            "bike_road_access");
+            "bike_road_access",
+            StaticScore.PM25.encodedValueName(),
+            StaticScore.NO2.encodedValueName(),
+            StaticScore.OZONE.encodedValueName(),
+            StaticScore.TRAFFIC.encodedValueName(),
+            StaticScore.INDUSTRIAL.encodedValueName(),
+            StaticScore.SHADE.encodedValueName(),
+            StaticScore.POLLEN.encodedValueName(),
+            ClearwayImportRegistry.SCORE_IMPORT_UNIT);
 
     @Bean(destroyMethod = "close")
-    public GraphHopper graphHopper(RoutingProperties properties) {
+    public GraphHopper graphHopper(
+            RoutingProperties properties,
+            SegmentScoreRepository scoreRepository) {
+        return graphHopper(properties, scoreRepository.loadIndex());
+    }
+
+    GraphHopper graphHopper(RoutingProperties properties, SegmentScoreIndex scores) {
         Path osmPath = requireOsmFile(properties.osmPath());
         Path graphPath = prepareGraphPath(properties.graphPath());
 
@@ -44,6 +63,7 @@ public class RoutingConfig {
                 .setOSMFile(osmPath.toString())
                 .setGraphHopperLocation(graphPath.toString())
                 .setEncodedValuesString(ENCODED_VALUES)
+                .setImportRegistry(new ClearwayImportRegistry(scores))
                 .setProfiles(profiles());
 
         LOGGER.info("Importing or loading GraphHopper graph at {} from {}", graphPath, osmPath);
@@ -51,11 +71,33 @@ public class RoutingConfig {
             hopper.importOrLoad();
             LOGGER.info("GraphHopper graph ready with {} nodes and {} edges",
                     hopper.getBaseGraph().getNodes(), hopper.getBaseGraph().getEdges());
+            long scoredEdges = verifyStaticScores(hopper, scores.size());
+            LOGGER.info("Loaded static scores for {} OSM ways; {} graph edges have a non-zero score",
+                    scores.size(), scoredEdges);
             return hopper;
         } catch (RuntimeException exception) {
             hopper.close();
             throw exception;
         }
+    }
+
+    private static long verifyStaticScores(GraphHopper hopper, int indexedWayCount) {
+        List<IntEncodedValue> encodedValues = List.of(StaticScore.values()).stream()
+                .map(score -> hopper.getEncodingManager()
+                        .getIntEncodedValue(score.encodedValueName()))
+                .toList();
+        long scoredEdges = 0;
+        var edges = hopper.getBaseGraph().getAllEdges();
+        while (edges.next()) {
+            if (encodedValues.stream().anyMatch(encodedValue -> edges.get(encodedValue) > 0)) {
+                scoredEdges++;
+            }
+        }
+        if (indexedWayCount > 0 && scoredEdges == 0) {
+            throw new IllegalStateException(
+                    "Static score index was populated but no graph edge received a score");
+        }
+        return scoredEdges;
     }
 
     private static List<Profile> profiles() {

@@ -7,10 +7,10 @@ import org.junit.jupiter.api.Test;
 class SegmentScoreIndexTest {
 
     @Test
-    void packsAndReadsAllSevenScores() {
+    void packsAndReadsAllScoresAcrossThreePacks() {
         SegmentScoreIndex index = new SegmentScoreIndex(1);
 
-        index.put(42L, 1.2, 20.5, 39.6, 58.8, 77.7, 99.9, 110.0);
+        index.put(42L, 1.2, 20.5, 39.6, 58.8, 77.7, 99.9, 110.0, 6.2, 100.0);
 
         assertThat(index.size()).isEqualTo(1);
         assertThat(index.get(42L, StaticScore.PM25)).isEqualTo(1);
@@ -20,6 +20,8 @@ class SegmentScoreIndexTest {
         assertThat(index.get(42L, StaticScore.INDUSTRIAL)).isEqualTo(78);
         assertThat(index.get(42L, StaticScore.SHADE)).isEqualTo(100);
         assertThat(index.get(42L, StaticScore.POLLEN)).isEqualTo(100);
+        assertThat(index.get(42L, StaticScore.GRADE)).isEqualTo(6);
+        assertThat(index.get(42L, StaticScore.INDUSTRIAL_WITHIN_200M)).isEqualTo(100);
         assertThat(index.get(99L, StaticScore.PM25)).isZero();
     }
 

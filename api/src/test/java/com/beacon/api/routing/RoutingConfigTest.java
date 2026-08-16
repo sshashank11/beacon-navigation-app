@@ -35,7 +35,7 @@ class RoutingConfigTest {
         RoutingProperties properties = new RoutingProperties(osmPath.toString(), graphPath.toString());
         RoutingConfig configuration = new RoutingConfig();
         SegmentScoreIndex scores = new SegmentScoreIndex(1);
-        scores.put(10, 82, 61, 42, 73, 54, 35, 16);
+        scores.put(10, 82, 61, 42, 73, 54, 35, 16, 7, 100);
 
         GraphHopper imported = configuration.graphHopper(properties, scores);
         try {
@@ -48,6 +48,8 @@ class RoutingConfigTest {
             assertThat(imported.getBaseGraph().getEdges()).isPositive();
             assertThat(imported.getEncodingManager().hasEncodedValue(
                     StaticScore.PM25.encodedValueName())).isTrue();
+            assertThat(imported.getEncodingManager().hasEncodedValue(
+                    StaticScore.GRADE.encodedValueName())).isTrue();
             var edges = imported.getBaseGraph().getAllEdges();
             assertThat(edges.next()).isTrue();
             assertThat(edges.get(imported.getEncodingManager().getIntEncodedValue(

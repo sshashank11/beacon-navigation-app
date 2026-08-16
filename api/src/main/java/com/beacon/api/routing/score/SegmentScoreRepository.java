@@ -19,9 +19,13 @@ public class SegmentScoreRepository {
               %s,
               %s,
               %s,
+              %s,
+              %s,
               %s
             FROM segment
             LEFT JOIN segment_static_score AS score ON score.segment_id = segment.id
+            LEFT JOIN segment_industrial_sample AS industrial
+              ON industrial.segment_id = segment.id
             GROUP BY segment.osm_way_id
             """.formatted(
             weightedAverage("pm25_prior"),
@@ -30,7 +34,9 @@ public class SegmentScoreRepository {
             weightedAverage("traffic_prox"),
             weightedAverage("industrial_prox"),
             weightedAverage("shade_benefit"),
-            weightedAverage("pollen_source"));
+            weightedAverage("pollen_source"),
+            weightedGrade(),
+            industrialWithin200m());
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -55,7 +61,9 @@ public class SegmentScoreRepository {
                 resultSet.getDouble(5),
                 resultSet.getDouble(6),
                 resultSet.getDouble(7),
-                resultSet.getDouble(8));
+                resultSet.getDouble(8),
+                resultSet.getDouble(9),
+                resultSet.getDouble(10));
     }
 
     private static String weightedAverage(String column) {
@@ -66,5 +74,24 @@ public class SegmentScoreRepository {
                   0
                 )
                 """.formatted(column).strip();
+    }
+
+    private static String weightedGrade() {
+        return """
+                coalesce(
+                  sum(abs(segment.grade_pct) * segment.length_m)
+                    / nullif(sum(segment.length_m) filter (where segment.grade_pct is not null), 0),
+                  0
+                )
+                """.strip();
+    }
+
+    private static String industrialWithin200m() {
+        return """
+                coalesce(
+                  max(case when industrial.nearest_facility_m <= 200 then 100 else 0 end),
+                  0
+                )
+                """.strip();
     }
 }

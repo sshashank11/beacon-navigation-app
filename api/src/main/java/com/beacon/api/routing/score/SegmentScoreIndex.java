@@ -7,13 +7,16 @@ public final class SegmentScoreIndex {
     static final int BITS_PER_SCORE = 7;
     static final int SCORE_MASK = (1 << BITS_PER_SCORE) - 1;
     private static final int FIRST_PACK_SIZE = 4;
+    private static final int SECOND_PACK_SIZE = 4;
 
     private final LongIntHashMap firstPack;
     private final LongIntHashMap secondPack;
+    private final LongIntHashMap thirdPack;
 
     public SegmentScoreIndex(int expectedWayCount) {
         firstPack = new LongIntHashMap(expectedWayCount);
         secondPack = new LongIntHashMap(expectedWayCount);
+        thirdPack = new LongIntHashMap(expectedWayCount);
     }
 
     public static SegmentScoreIndex empty() {
@@ -27,16 +30,20 @@ public final class SegmentScoreIndex {
         }
         int first = 0;
         int second = 0;
+        int third = 0;
         for (int index = 0; index < scores.length; index++) {
             int quantized = quantize(scores[index]);
             if (index < FIRST_PACK_SIZE) {
                 first |= quantized << (index * BITS_PER_SCORE);
-            } else {
+            } else if (index < FIRST_PACK_SIZE + SECOND_PACK_SIZE) {
                 second |= quantized << ((index - FIRST_PACK_SIZE) * BITS_PER_SCORE);
+            } else {
+                third |= quantized << ((index - FIRST_PACK_SIZE - SECOND_PACK_SIZE) * BITS_PER_SCORE);
             }
         }
         firstPack.put(osmWayId, first);
         secondPack.put(osmWayId, second);
+        thirdPack.put(osmWayId, third);
     }
 
     public int get(long osmWayId, StaticScore score) {
@@ -44,7 +51,12 @@ public final class SegmentScoreIndex {
         if (ordinal < FIRST_PACK_SIZE) {
             return unpack(firstPack.getOrDefault(osmWayId, 0), ordinal);
         }
-        return unpack(secondPack.getOrDefault(osmWayId, 0), ordinal - FIRST_PACK_SIZE);
+        if (ordinal < FIRST_PACK_SIZE + SECOND_PACK_SIZE) {
+            return unpack(secondPack.getOrDefault(osmWayId, 0), ordinal - FIRST_PACK_SIZE);
+        }
+        return unpack(
+                thirdPack.getOrDefault(osmWayId, 0),
+                ordinal - FIRST_PACK_SIZE - SECOND_PACK_SIZE);
     }
 
     public int size() {

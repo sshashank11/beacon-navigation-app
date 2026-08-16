@@ -81,6 +81,7 @@ public class ConditionsService {
         }
         return new SeasonalGates(
                 temperature != null && temperature > 27.0,
+                TreePollenSeason.isActive(clock.instant()),
                 Set.copyOf(activePollen));
     }
 

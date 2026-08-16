@@ -1,25 +1,36 @@
 package com.beacon.api.routing;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.beacon.api.conditions.SeasonalGates;
+import com.beacon.api.hazards.Hazard;
+import com.beacon.api.hazards.HazardFieldService;
+import com.beacon.api.hazards.LiveHazardModelEnricher;
+import com.beacon.api.profiles.CustomModelBuilder;
+import com.beacon.api.profiles.TriggerProfile;
 import com.beacon.api.routing.score.SegmentScoreIndex;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GraphHopper;
-import com.graphhopper.ResponsePath;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-class Pm25RouteDivergenceTest {
+class ProfileCustomModelRoutingTest {
 
     @TempDir
     Path tempDirectory;
 
     @Test
-    void cleanestVariantAvoidsShortHighPm25Corridor() throws IOException {
-        Path osmPath = tempDirectory.resolve("two-corridors.osm");
+    void profileModelRoutesAroundHighExposureAndExcessGrade() throws IOException {
+        Path osmPath = tempDirectory.resolve("profile-corridors.osm");
         Path graphPath = tempDirectory.resolve("graph-cache");
         Files.writeString(osmPath, """
                 <?xml version="1.0" encoding="UTF-8"?>
@@ -39,21 +50,36 @@ class Pm25RouteDivergenceTest {
                 </osm>
                 """);
         SegmentScoreIndex scores = new SegmentScoreIndex(2);
-        scores.put(10, 95, 0, 0, 0, 0, 0, 0, 0, 0);
-        scores.put(20, 10, 0, 0, 0, 0, 0, 0, 0, 0);
+        scores.put(10, 95, 0, 0, 0, 0, 0, 0, 8, 0);
+        scores.put(20, 10, 0, 0, 0, 0, 0, 0, 2, 0);
         GraphHopper hopper = new RoutingConfig().graphHopper(
                 new RoutingProperties(osmPath.toString(), graphPath.toString()),
                 scores);
 
         try {
-            var fastest = route(hopper, RouteVariant.FASTEST);
-            var cleanest = route(hopper, RouteVariant.CLEANEST);
+            TriggerProfile profile = new TriggerProfile(
+                    UUID.randomUUID(),
+                    "Sensitive walker",
+                    RouteMode.FOOT,
+                    Map.of(Hazard.PM25, 3.0),
+                    Set.of(),
+                    5.0,
+                    0.25,
+                    1.0);
+            HazardFieldService fields = mock(HazardFieldService.class);
+            when(fields.currentAreas()).thenReturn(List.of());
+            var model = new CustomModelBuilder(new LiveHazardModelEnricher(fields))
+                    .build(profile, 1.0, new SeasonalGates(false, false, Set.of()));
+            GHRequest request = new GHRequest(40.7500, -73.9900, 40.7501, -73.9860)
+                    .setProfile("foot")
+                    .setLocale("en-US")
+                    .setCustomModel(model);
 
-            assertThat(fastest.getPoints().toLineString(false))
-                    .isNotEqualTo(cleanest.getPoints().toLineString(false));
-            assertThat(fastest.getDistance()).isLessThan(cleanest.getDistance());
+            var response = hopper.route(request);
+
+            assertThat(response.getErrors()).isEmpty();
             double maximumLatitude = java.util.Arrays.stream(
-                            cleanest.getPoints().toLineString(false).getCoordinates())
+                            response.getBest().getPoints().toLineString(false).getCoordinates())
                     .mapToDouble(point -> point.y)
                     .max()
                     .orElseThrow();
@@ -61,19 +87,5 @@ class Pm25RouteDivergenceTest {
         } finally {
             hopper.close();
         }
-    }
-
-    private static GHRequest request(RouteVariant variant) {
-        GHRequest request = new GHRequest(40.7500, -73.9900, 40.7501, -73.9860)
-                .setProfile("foot")
-                .setLocale("en-US");
-        variant.configure(request);
-        return request;
-    }
-
-    private static ResponsePath route(GraphHopper hopper, RouteVariant variant) {
-        var response = hopper.route(request(variant));
-        assertThat(response.getErrors()).isEmpty();
-        return response.getBest();
     }
 }

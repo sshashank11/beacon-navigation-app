@@ -307,10 +307,11 @@ def _replace_industrial_samples(database_url: str) -> None:
         cursor.execute(
             """
             INSERT INTO segment_industrial_sample
-              (segment_id, facility_count, raw_kernel, computed_at)
+              (segment_id, facility_count, nearest_facility_m, raw_kernel, computed_at)
             SELECT
               segment.id,
               nearby.facility_count,
+              nearby.nearest_facility_m,
               nearby.raw_kernel,
               now()
             FROM (
@@ -322,6 +323,8 @@ def _replace_industrial_samples(database_url: str) -> None:
             CROSS JOIN LATERAL (
               SELECT
                 count(facility.id)::integer AS facility_count,
+                min(ST_Distance(segment.midpoint, facility.geom))::real
+                  AS nearest_facility_m,
                 coalesce(
                   sum(exp(-ST_Distance(segment.midpoint, facility.geom) / %s)),
                   0

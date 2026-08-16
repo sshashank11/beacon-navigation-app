@@ -10,7 +10,9 @@ public enum StaticScore {
     TRAFFIC("clw_traffic"),
     INDUSTRIAL("clw_industrial"),
     SHADE("clw_shade"),
-    POLLEN("clw_pollen");
+    POLLEN("clw_pollen"),
+    GRADE("clw_grade"),
+    INDUSTRIAL_WITHIN_200M("clw_industrial_within_200m");
 
     private final String encodedValueName;
 

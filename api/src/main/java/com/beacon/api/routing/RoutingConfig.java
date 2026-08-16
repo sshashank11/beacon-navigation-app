@@ -46,6 +46,8 @@ public class RoutingConfig {
             StaticScore.INDUSTRIAL.encodedValueName(),
             StaticScore.SHADE.encodedValueName(),
             StaticScore.POLLEN.encodedValueName(),
+            StaticScore.GRADE.encodedValueName(),
+            StaticScore.INDUSTRIAL_WITHIN_200M.encodedValueName(),
             ClearwayImportRegistry.SCORE_IMPORT_UNIT);
 
     @Bean(destroyMethod = "close")

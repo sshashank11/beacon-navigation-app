@@ -30,6 +30,26 @@ class LiveHazardModelEnricherTest {
         });
     }
 
+    @Test
+    void hardAvoidAddsAZeroPriorityRuleWithoutDuplicatingAnArea() {
+        HazardFieldService fields = mock(HazardFieldService.class);
+        JsonFeature construction = feature("construction_active", "construction", 3);
+        when(fields.currentAreas()).thenReturn(List.of(construction));
+        LiveHazardModelEnricher enricher = new LiveHazardModelEnricher(fields);
+        CustomModel model = enricher.attach(
+                new CustomModel(),
+                Map.of("construction", 3.0),
+                1.0);
+
+        enricher.attachHardAvoid(model, "construction");
+
+        assertThat(model.getAreas().getFeatures()).containsExactly(construction);
+        assertThat(model.getPriority()).anySatisfy(statement -> {
+            assertThat(statement.condition()).isEqualTo("in_construction_active");
+            assertThat(statement.value()).isEqualTo("0");
+        });
+    }
+
     private static JsonFeature feature(String id, String hazard, int severity) {
         var geometry = new GeometryFactory().createPoint();
         return new JsonFeature(

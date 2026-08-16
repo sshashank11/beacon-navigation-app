@@ -16,7 +16,7 @@ class ConditionsServiceTest {
     void currentSnapshotAveragesLatestStationReadings() {
         CitywideReadingRepository readings = mock(CitywideReadingRepository.class);
         NwsAlertRepository alerts = mock(NwsAlertRepository.class);
-        Instant now = Instant.parse("2026-08-15T16:00:00Z");
+        Instant now = Instant.parse("2026-04-15T16:00:00Z");
         ConditionsService conditionsService = new ConditionsService(
                 readings,
                 alerts,
@@ -44,6 +44,7 @@ class ConditionsServiceTest {
         assertThat(snapshot.weather().temperatureC()).isEqualTo(29.0);
         assertThat(snapshot.summary()).contains("PM25 AQI 72", "Tree pollen is high");
         assertThat(conditionsService.seasonalGates().shadeActive()).isTrue();
+        assertThat(conditionsService.seasonalGates().treePollenSeasonActive()).isTrue();
         assertThat(conditionsService.seasonalGates().activePollenHazards()).contains("pollen_tree");
     }
 }

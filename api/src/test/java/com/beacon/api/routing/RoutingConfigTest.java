@@ -1,0 +1,60 @@
+package com.beacon.api.routing;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.graphhopper.GraphHopper;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+class RoutingConfigTest {
+
+    @TempDir
+    Path tempDirectory;
+
+    @Test
+    void importsAndReloadsGraphCacheWithFootAndBikeProfiles() throws IOException {
+        Path osmPath = tempDirectory.resolve("streets.osm");
+        Path graphPath = tempDirectory.resolve("graph-cache");
+        Files.writeString(osmPath, """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <osm version="0.6" generator="beacon-test">
+                  <node id="1" lat="40.7500" lon="-73.9900"/>
+                  <node id="2" lat="40.7510" lon="-73.9900"/>
+                  <way id="10">
+                    <nd ref="1"/>
+                    <nd ref="2"/>
+                    <tag k="highway" v="residential"/>
+                  </way>
+                </osm>
+                """);
+        RoutingProperties properties = new RoutingProperties(osmPath.toString(), graphPath.toString());
+        RoutingConfig configuration = new RoutingConfig();
+
+        GraphHopper imported = configuration.graphHopper(properties);
+        try {
+            assertThat(imported.getFullyLoaded()).isTrue();
+            assertThat(imported.getProfiles()).extracting("name").containsExactly("foot", "bike");
+            assertThat(imported.getProfiles()).allSatisfy(profile -> {
+                assertThat(profile.getWeighting()).isEqualTo("custom");
+                assertThat(profile.getCustomModel().getSpeed()).isNotEmpty();
+            });
+            assertThat(imported.getBaseGraph().getEdges()).isPositive();
+        } finally {
+            imported.close();
+        }
+
+        assertThat(graphPath).isDirectory();
+        assertThat(graphPath.resolve("properties")).isRegularFile();
+
+        GraphHopper reloaded = configuration.graphHopper(properties);
+        try {
+            assertThat(reloaded.getFullyLoaded()).isTrue();
+            assertThat(reloaded.getBaseGraph().getEdges()).isPositive();
+        } finally {
+            reloaded.close();
+        }
+    }
+}

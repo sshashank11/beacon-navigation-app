@@ -27,3 +27,9 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+
+beacon:
+  routing:
+    enabled: ${BEACON_ROUTING_ENABLED:true}
+    osm-path: ${BEACON_OSM_PATH:../data/osm/nyc.osm.pbf}
+    graph-path: ${BEACON_GRAPH_PATH:../graph-cache}

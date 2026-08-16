@@ -12,3 +12,6 @@ management:
   health:
     redis:
       enabled: false
+beacon:
+  routing:
+    enabled: false

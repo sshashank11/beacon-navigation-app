@@ -3,6 +3,7 @@ api/target/
 api/build/
 api/build-*/
 api/.gradle/
+api/.gradle-*/
 *.class
 
 # Python

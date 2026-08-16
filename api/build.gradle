@@ -19,7 +19,7 @@ repositories {
 }
 
 dependencies {
-	implementation 'com.graphhopper:graphhopper-core:10.2'
+	implementation 'com.graphhopper:graphhopper-core:11.0'
 	implementation 'org.hibernate.orm:hibernate-spatial'
 	implementation 'org.locationtech.jts:jts-core:1.20.0'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'

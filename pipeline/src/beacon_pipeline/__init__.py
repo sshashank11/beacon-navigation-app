@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from beacon_pipeline.config import load_settings
 from beacon_pipeline.flows import serve_flows
@@ -10,6 +11,7 @@ from beacon_pipeline.ingest.nws import ingest_nws
 from beacon_pipeline.ingest.openaq import ingest_openaq
 from beacon_pipeline.ingest.pollen import ingest_pollen
 from beacon_pipeline.model.hazard_fields import build_hazard_fields, refresh_construction_scores
+from beacon_pipeline.osm import DEFAULT_OSM_DATA_DIR, prepare_osm_data
 
 
 def main() -> None:
@@ -24,15 +26,24 @@ def main() -> None:
             "ingest-dob-permits",
             "refresh-construction-scores",
             "build-hazard-fields",
+            "prepare-osm",
             "serve",
         ],
     )
+    parser.add_argument("--data-dir", type=Path, default=DEFAULT_OSM_DATA_DIR)
+    parser.add_argument("--force-download", action="store_true")
     args = parser.parse_args()
-    settings = load_settings()
 
+    if args.job == "prepare-osm":
+        result = prepare_osm_data(args.data_dir, force_download=args.force_download)
+        print(f"prepare-osm: wrote {result.extract_path}")
+        print(result.file_info)
+        return
     if args.job == "serve":
         serve_flows()
         return
+
+    settings = load_settings()
     if args.job == "ingest-openaq":
         count = ingest_openaq(settings)
     elif args.job == "ingest-airnow":

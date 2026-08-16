@@ -41,9 +41,14 @@ Prerequisites: Java 21 and Docker Desktop.
 
 ```bash
 make up
+make osm
 make api
 make pipeline
 make web
 ```
+
+`make osm` downloads roughly 500 MB of source map data and creates the smaller
+five-borough extract at `data/osm/nyc.osm.pbf`. Docker is used for Osmium when
+the command is not installed locally.
 
 The API uses the root environment variables when present and otherwise connects to the local Beacon PostGIS database defined in `docker-compose.yml`. Once the stack and API are running, the health check is available at `http://localhost:8080/actuator/health`.

@@ -32,3 +32,19 @@ Run the deterministic parser and raster tests with:
 ```bash
 uv run python -m unittest discover -s tests -v
 ```
+
+## Routing data
+
+Prepare the five-borough OpenStreetMap extract from the repository root:
+
+```bash
+make osm
+```
+
+The command downloads the current New York State PBF from Geofabrik, verifies
+its published checksum, downloads the five shoreline-clipped borough polygons
+from NYC Open Data, dissolves them into one boundary, and writes
+`data/osm/nyc.osm.pbf`. It uses a local `osmium` executable when available and
+otherwise runs the pinned `docker.io/iboates/osmium:1.19.0` image. Source and
+generated map data are gitignored. Use `--force-download` only when the source
+PBF needs to be fetched again despite a matching checksum.

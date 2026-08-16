@@ -1,4 +1,4 @@
-.PHONY: up down db api pipeline web
+.PHONY: up down db api pipeline web osm
 
 up:
 	docker compose up -d
@@ -17,3 +17,6 @@ pipeline:
 
 web:
 	cd web && npm run dev
+
+osm:
+	cd pipeline && uv run beacon-pipeline prepare-osm

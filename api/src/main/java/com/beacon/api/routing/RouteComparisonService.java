@@ -8,6 +8,7 @@ import com.graphhopper.GHRequest;
 import com.graphhopper.ResponsePath;
 import com.graphhopper.util.CustomModel;
 import java.util.Map;
+import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
@@ -20,18 +21,29 @@ public class RouteComparisonService {
     private final RouteService routes;
     private final CustomModelBuilder models;
     private final ConditionsService conditions;
+    private final RouteHistoryRepository history;
 
     public RouteComparisonService(
             RouteService routes,
             CustomModelBuilder models,
-            ConditionsService conditions
+            ConditionsService conditions,
+            RouteHistoryRepository history
     ) {
         this.routes = routes;
         this.models = models;
         this.conditions = conditions;
+        this.history = history;
     }
 
     public RouteComparisonResponse compare(RouteComparisonRequest request) {
+        return compare(request, true);
+    }
+
+    public RouteComparisonResponse preview(RouteComparisonRequest request) {
+        return compare(request, false);
+    }
+
+    private RouteComparisonResponse compare(RouteComparisonRequest request, boolean persist) {
         TriggerProfile profile = request.toProfile();
         SeasonalGates gates = conditions.seasonalGates();
         ResponsePath fastestPath = routes.routePath(request(request, null));
@@ -52,10 +64,13 @@ public class RouteComparisonService {
                 2.0,
                 fastestDistance * (1.0 + profile.getDetourTolerance() * 2.0));
 
-        return new RouteComparisonResponse(
-                response(fastest, fastestExposure, fastestDistance),
-                response(balanced, fastestExposure, fastestDistance),
-                response(cleanest, fastestExposure, fastestDistance));
+        RouteComparisonResponse.ComparedRoute fastestResponse = response(
+                "fastest", fastest, fastestExposure, fastestDistance, persist);
+        RouteComparisonResponse.ComparedRoute balancedResponse = response(
+                "balanced", balanced, fastestExposure, fastestDistance, persist);
+        RouteComparisonResponse.ComparedRoute cleanestResponse = response(
+                "cleanest", cleanest, fastestExposure, fastestDistance, persist);
+        return new RouteComparisonResponse(fastestResponse, balancedResponse, cleanestResponse);
     }
 
     private Attempt routeWithinCap(
@@ -87,14 +102,22 @@ public class RouteComparisonService {
                 true);
     }
 
-    private static RouteComparisonResponse.ComparedRoute response(
+    private RouteComparisonResponse.ComparedRoute response(
+            String variant,
             Attempt attempt,
             Map<String, Double> fastestExposure,
-            double fastestDistance
+            double fastestDistance,
+            boolean persist
     ) {
         Map<String, Double> exposure = RouteExposureCalculator.calculate(attempt.path());
+        RouteResponse route = RouteService.toResponse(attempt.path());
+        UUID id = persist ? UUID.randomUUID() : null;
+        if (persist) {
+            history.save(id, variant, route, exposure);
+        }
         return new RouteComparisonResponse.ComparedRoute(
-                RouteService.toResponse(attempt.path()),
+                id,
+                route,
                 exposure,
                 RouteExposureCalculator.comparativeDiff(
                         exposure,

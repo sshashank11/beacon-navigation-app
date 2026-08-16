@@ -25,6 +25,6 @@ public class ProfilePreviewController {
     public RouteComparisonResponse preview(
             @Valid @RequestBody RouteComparisonRequest request
     ) {
-        return routeComparisons.compare(request);
+        return routeComparisons.preview(request);
     }
 }

@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import {
   ArrowDownUp,
   Bike,
+  CheckCircle2,
   Clock3,
   Footprints,
   Layers3,
@@ -11,6 +12,9 @@ import {
   Navigation,
   Route,
   Scale,
+  Send,
+  ThumbsDown,
+  ThumbsUp,
   Trash2,
 } from 'lucide-react'
 import * as maplibregl from 'maplibre-gl'
@@ -20,6 +24,7 @@ import type { FeatureCollection, LineString, Point } from 'geojson'
 import {
   createRouteComparison,
   hazardTileUrl,
+  submitRouteFeedback,
   type ComparedRoute,
   type HazardLayer,
   type LatLng,
@@ -516,6 +521,10 @@ function RouteComparisonSummary({ comparison, selected, onSelect }: RouteCompari
         selected={selected === 'cleanest'}
         onSelect={onSelect}
       />
+      <RouteFeedbackPanel
+        key={comparison[selected].id}
+        route={comparison[selected]}
+      />
     </div>
   )
 }
@@ -571,6 +580,92 @@ function RouteOption({ variant, label, icon: Icon, route, selected, onSelect }: 
         ))}
       </span>
     </button>
+  )
+}
+
+function RouteFeedbackPanel({ route }: { route: ComparedRoute }) {
+  const [feltWorse, setFeltWorse] = useState(false)
+  const [segment, setSegment] = useState('')
+  const feedback = useMutation({
+    mutationFn: (request: { feltWorse: boolean; whichSegments: number[] }) =>
+      submitRouteFeedback(route.id, request),
+  })
+
+  if (feedback.isSuccess) {
+    return (
+      <div className="mt-4 flex items-center gap-2 border-t border-[#dce3df] pt-4 text-sm font-semibold text-[#168447]" role="status">
+        <CheckCircle2 className="size-4" aria-hidden />
+        Feedback saved. Thank you.
+      </div>
+    )
+  }
+
+  function submitNegativeFeedback() {
+    feedback.mutate({
+      feltWorse: true,
+      whichSegments: segment === '' ? [] : [Number(segment)],
+    })
+  }
+
+  return (
+    <div className="mt-4 border-t border-[#dce3df] pt-4">
+      <p className="text-xs font-semibold uppercase text-[#6a776f]">How did this route feel?</p>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          className="flex h-10 items-center justify-center gap-2 border border-[#cfd9d2] bg-white text-xs font-semibold text-[#315a43] hover:border-[#168447] hover:bg-[#f0f7f2] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447] disabled:opacity-50"
+          onClick={() => feedback.mutate({ feltWorse: false, whichSegments: [] })}
+          disabled={feedback.isPending}
+        >
+          <ThumbsUp className="size-4" aria-hidden />
+          Felt good
+        </button>
+        <button
+          type="button"
+          className={`flex h-10 items-center justify-center gap-2 border text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#a44b3d] ${feltWorse ? 'border-[#a44b3d] bg-[#fff2ef] text-[#8c3c31]' : 'border-[#cfd9d2] bg-white text-[#6d5049] hover:border-[#bd776c]'}`}
+          onClick={() => setFeltWorse(true)}
+          aria-pressed={feltWorse}
+          disabled={feedback.isPending}
+        >
+          <ThumbsDown className="size-4" aria-hidden />
+          Felt bad
+        </button>
+      </div>
+      {feltWorse && (
+        <div className="mt-3 border-l-2 border-[#c56c5e] pl-3">
+          <label htmlFor="feedback-segment" className="block text-xs font-semibold text-[#3d4b43]">
+            Which part felt bad? <span className="font-normal text-[#79857e]">Optional</span>
+          </label>
+          <select
+            id="feedback-segment"
+            className="mt-2 h-10 w-full border border-[#cfd8d2] bg-white px-2 text-xs text-[#2d3b33] outline-none focus:border-[#168447]"
+            value={segment}
+            onChange={(event) => setSegment(event.target.value)}
+          >
+            <option value="">No specific segment</option>
+            {route.route.instructions.map((instruction, index) => (
+              <option key={`${index}-${instruction.street_name}`} value={index}>
+                {instructionLabel(instruction.street_name, instruction.distance_m, index)}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="mt-2 flex h-9 w-full items-center justify-center gap-2 bg-[#a44b3d] px-3 text-xs font-semibold text-white hover:bg-[#883d33] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#a44b3d] disabled:opacity-50"
+            onClick={submitNegativeFeedback}
+            disabled={feedback.isPending}
+          >
+            {feedback.isPending
+              ? <LoaderCircle className="size-4 animate-spin" aria-hidden />
+              : <Send className="size-4" aria-hidden />}
+            Send feedback
+          </button>
+        </div>
+      )}
+      {feedback.isError && (
+        <p className="mt-2 text-xs text-[#9a4035]" role="alert">Feedback could not be saved.</p>
+      )}
+    </div>
   )
 }
 
@@ -639,6 +734,11 @@ function formatDuration(seconds: number): string {
   const hours = Math.floor(minutes / 60)
   const remainder = minutes % 60
   return remainder ? `${hours} hr ${remainder} min` : `${hours} hr`
+}
+
+function instructionLabel(streetName: string, distanceM: number, index: number): string {
+  const name = streetName.trim() || `Route segment ${index + 1}`
+  return `${name} - ${formatDistance(distanceM)}`
 }
 
 function formatSignedPercent(value: number): string {

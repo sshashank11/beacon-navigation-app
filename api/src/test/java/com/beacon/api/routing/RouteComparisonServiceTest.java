@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import com.beacon.api.conditions.ConditionsService;
@@ -32,6 +33,7 @@ class RouteComparisonServiceTest {
         RouteService routes = mock(RouteService.class);
         CustomModelBuilder models = mock(CustomModelBuilder.class);
         ConditionsService conditions = mock(ConditionsService.class);
+        RouteHistoryRepository history = mock(RouteHistoryRepository.class);
         when(conditions.seasonalGates()).thenReturn(new SeasonalGates(false, false, Set.of()));
         when(models.build(any(TriggerProfile.class), anyDouble(), any(SeasonalGates.class)))
                 .thenReturn(new CustomModel());
@@ -54,10 +56,11 @@ class RouteComparisonServiceTest {
                 0.1,
                 null);
 
-        RouteComparisonResponse response = new RouteComparisonService(routes, models, conditions)
+        RouteComparisonResponse response = new RouteComparisonService(routes, models, conditions, history)
                 .compare(request);
 
         assertThat(response.fastest().route().distanceM()).isEqualTo(1_000);
+        assertThat(response.fastest().id()).isNotNull();
         assertThat(response.fastest().comparativeDiff()).containsEntry("distance", 0.0);
         assertThat(response.balanced().route().distanceM()).isEqualTo(1_080);
         assertThat(response.balanced().attempts()).isEqualTo(3);
@@ -70,6 +73,7 @@ class RouteComparisonServiceTest {
         assertThat(response.cleanest().detourCapExceeded()).isTrue();
         assertThat(response.cleanest().comparativeDiff()).containsEntry("pm25", -0.22);
         verify(conditions).seasonalGates();
+        verify(history, times(3)).save(any(), any(), any(), any());
     }
 
     private static ResponsePath path(double distance, int score) {

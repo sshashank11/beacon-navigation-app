@@ -17,12 +17,12 @@ class ProfilePreviewControllerTest {
         RouteComparisonService comparisons = mock(RouteComparisonService.class);
         RouteComparisonRequest request = mock(RouteComparisonRequest.class);
         RouteComparisonResponse expected = mock(RouteComparisonResponse.class);
-        when(comparisons.compare(request)).thenReturn(expected);
+        when(comparisons.preview(request)).thenReturn(expected);
 
         RouteComparisonResponse response = new ProfilePreviewController(comparisons)
                 .preview(request);
 
         assertThat(response).isSameAs(expected);
-        verify(comparisons).compare(request);
+        verify(comparisons).preview(request);
     }
 }

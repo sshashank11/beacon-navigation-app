@@ -2,6 +2,7 @@ package com.beacon.api.routing;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
+import java.util.UUID;
 
 public record RouteComparisonResponse(
         ComparedRoute fastest,
@@ -10,6 +11,7 @@ public record RouteComparisonResponse(
 ) {
 
     public record ComparedRoute(
+            UUID id,
             RouteResponse route,
             @JsonProperty("exposure_breakdown") Map<String, Double> exposureBreakdown,
             @JsonProperty("comparative_diff") Map<String, Double> comparativeDiff,

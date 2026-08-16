@@ -32,6 +32,7 @@ export interface RouteResponse {
 }
 
 export interface ComparedRoute {
+  id: string
   route: RouteResponse
   exposure_breakdown: Record<string, number>
   comparative_diff: Record<string, number | null>
@@ -57,6 +58,17 @@ export interface RouteComparisonRequest {
   max_grade_pct: number
   detour_tolerance: number
   conservatism: number
+}
+
+export interface RouteFeedbackRequest {
+  feltWorse: boolean
+  whichSegments: number[]
+}
+
+export interface RouteFeedbackResponse extends RouteFeedbackRequest {
+  id: string
+  routeId: string
+  createdAt: string
 }
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
@@ -97,6 +109,27 @@ export async function createRouteComparison(
   }
 
   return response.json() as Promise<RouteComparison>
+}
+
+export async function submitRouteFeedback(
+  routeId: string,
+  request: RouteFeedbackRequest,
+): Promise<RouteFeedbackResponse> {
+  const response = await fetch(`${apiBaseUrl}/api/v1/routes/${routeId}/feedback`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  })
+
+  if (!response.ok) {
+    const detail = await response.text()
+    throw new Error(detail || `Route feedback failed with status ${response.status}`)
+  }
+
+  return response.json() as Promise<RouteFeedbackResponse>
 }
 
 export function hazardTileUrl(hazard: HazardLayer): string {

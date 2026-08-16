@@ -211,7 +211,7 @@ def render_segmentation_previews(
                 f"mask for {reference.mapillary_id} does not match its image dimensions"
             )
 
-        histogram = _class_histogram(mask, labels)
+        histogram = class_histogram(mask, labels)
         detected.update(histogram)
         filename = f"{_safe_filename(reference.mapillary_id)}.png"
         _render_side_by_side(image, mask, labels).save(output_dir / filename)
@@ -268,7 +268,7 @@ def _download_image(client: httpx.Client, url: str) -> Image.Image:
         return source.convert("RGB")
 
 
-def _class_histogram(mask: np.ndarray, labels: dict[int, str]) -> dict[str, float]:
+def class_histogram(mask: np.ndarray, labels: dict[int, str]) -> dict[str, float]:
     class_ids, counts = np.unique(mask, return_counts=True)
     pixel_count = int(mask.size)
     return {

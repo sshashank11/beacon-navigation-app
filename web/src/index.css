@@ -25,6 +25,47 @@ button:disabled {
   cursor: default;
 }
 
+.beacon-range {
+  height: 20px;
+  appearance: none;
+  background: transparent;
+}
+
+.beacon-range::-webkit-slider-runnable-track {
+  height: 4px;
+  background: #ccd8d0;
+}
+
+.beacon-range::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  margin-top: -7px;
+  appearance: none;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #168447;
+  box-shadow: 0 0 0 1px #168447;
+}
+
+.beacon-range::-moz-range-track {
+  height: 4px;
+  background: #ccd8d0;
+}
+
+.beacon-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #168447;
+  box-shadow: 0 0 0 1px #168447;
+}
+
+.beacon-range:focus-visible {
+  outline: 2px solid #168447;
+  outline-offset: 5px;
+}
+
 .route-panel {
   width: 360px;
 }

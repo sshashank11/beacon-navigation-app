@@ -4,6 +4,7 @@ import {
   Flower2,
   Gauge,
   RefreshCw,
+  SlidersHorizontal,
   Thermometer,
   TriangleAlert,
   WifiOff,
@@ -30,7 +31,11 @@ interface PollenReading {
   value: number
 }
 
-export function ConditionsBanner() {
+interface ConditionsBannerProps {
+  onEditProfile: () => void
+}
+
+export function ConditionsBanner({ onEditProfile }: ConditionsBannerProps) {
   const conditions = useQuery({
     queryKey: ['conditions', 'now'],
     queryFn: ({ signal }) => fetchCurrentConditions(signal),
@@ -53,6 +58,15 @@ export function ConditionsBanner() {
             <p className="text-sm font-semibold text-[#24322a]">Live conditions unavailable</p>
             <p className="truncate text-xs text-[#647168]">Route planning can continue with baseline data.</p>
           </div>
+          <button
+            type="button"
+            className="grid size-9 place-items-center text-[#526159] transition-colors hover:bg-[#e9efeb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447]"
+            onClick={onEditProfile}
+            title="Edit trigger profile"
+            aria-label="Edit trigger profile"
+          >
+            <SlidersHorizontal className="size-4" aria-hidden="true" />
+          </button>
           <button
             type="button"
             className="grid size-10 shrink-0 place-items-center border border-[#cbd4cf] bg-white text-[#36483d] transition-colors hover:bg-[#edf2ef] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447]"
@@ -124,6 +138,15 @@ export function ConditionsBanner() {
 
         <div className="col-start-3 row-start-1 ml-auto flex shrink-0 items-center gap-1 self-center pl-1 2xl:col-auto 2xl:row-auto">
           <span className="hidden text-xs text-[#6c786f] 2xl:inline">Updated {updatedAt}</span>
+          <button
+            type="button"
+            className="grid size-9 place-items-center text-[#526159] transition-colors hover:bg-[#e9efeb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447]"
+            onClick={onEditProfile}
+            title="Edit trigger profile"
+            aria-label="Edit trigger profile"
+          >
+            <SlidersHorizontal className="size-4" aria-hidden="true" />
+          </button>
           <button
             type="button"
             className="grid size-9 place-items-center text-[#526159] transition-colors hover:bg-[#e9efeb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447]"

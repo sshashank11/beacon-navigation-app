@@ -109,3 +109,19 @@ ozone grid, reprojects each source from NAD83 New York Long Island State Plane
 feet to EPSG:4326, and samples one or three points per segment. Raw values remain
 in `segment_nyccas_sample`; comparable 0-100 percentile ranks are written to
 `segment_static_score`.
+
+## Street-tree shade and pollen
+
+Load living trees from the official TreesCount! 2015 census and refresh the
+15 m segment buffers with:
+
+```bash
+uv run beacon-pipeline refresh-street-tree-scores
+```
+
+The job keyset-pages through NYC Open Data, transactionally replaces the
+PostGIS tree inventory, and computes tree density per 100 m of segment. Shade
+uses all living trees; pollen uses London plane, oak, birch, mulberry, ash,
+maple, and elm weighted by the seeded genus lookup. Both values are stored as
+0-100 percentile ranks, while counts and densities remain available in
+`segment_tree_sample`.

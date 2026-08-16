@@ -18,6 +18,7 @@ from beacon_pipeline.model.hazard_fields import (
 )
 from beacon_pipeline.nyccas import refresh_nyccas_scores
 from beacon_pipeline.osm import DEFAULT_OSM_DATA_DIR, prepare_osm_data
+from beacon_pipeline.street_trees import refresh_street_tree_scores
 
 
 def main() -> None:
@@ -36,6 +37,7 @@ def main() -> None:
             "extract-segments",
             "enrich-elevation",
             "refresh-nyccas-scores",
+            "refresh-street-tree-scores",
             "serve",
         ],
     )
@@ -92,6 +94,16 @@ def main() -> None:
             f"{result.sampled_count:,}/{result.segment_count:,} segments "
             f"(PM2.5 {result.pm25_count:,}, NO2 {result.no2_count:,}, "
             f"ozone {result.ozone_count:,}; {years})"
+        )
+        return
+    if args.job == "refresh-street-tree-scores":
+        result = refresh_street_tree_scores(settings)
+        print(
+            "refresh-street-tree-scores: loaded "
+            f"{result.tree_count:,} living trees "
+            f"({result.allergenic_tree_count:,} allergenic); scored "
+            f"{result.shaded_segment_count:,}/{result.segment_count:,} segments "
+            f"for shade and {result.pollen_segment_count:,} for pollen"
         )
         return
     if args.job == "ingest-openaq":

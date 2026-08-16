@@ -18,9 +18,11 @@ import org.springframework.web.server.ResponseStatusException;
 public class RouteController {
 
     private final RouteService routeService;
+    private final RouteComparisonService comparisonService;
 
-    public RouteController(RouteService routeService) {
+    public RouteController(RouteService routeService, RouteComparisonService comparisonService) {
         this.routeService = routeService;
+        this.comparisonService = comparisonService;
     }
 
     @PostMapping
@@ -36,6 +38,15 @@ public class RouteController {
                 .setLocale("en-US");
         routeRequest.variant().configure(request);
         return routeService.route(request);
+    }
+
+    @PostMapping("/compare")
+    public RouteComparisonResponse compare(
+            @Valid @RequestBody RouteComparisonRequest routeRequest
+    ) {
+        validatePoint(routeRequest.origin(), "origin");
+        validatePoint(routeRequest.destination(), "destination");
+        return comparisonService.compare(routeRequest);
     }
 
     private static void validatePoint(List<Double> point, String name) {

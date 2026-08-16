@@ -1,5 +1,7 @@
 package com.beacon.api.profiles;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Arrays;
 
 public enum HardAvoid {
@@ -14,10 +16,12 @@ public enum HardAvoid {
         this.key = key;
     }
 
+    @JsonValue
     public String key() {
         return key;
     }
 
+    @JsonCreator
     public static HardAvoid fromKey(String key) {
         return Arrays.stream(values())
                 .filter(avoid -> avoid.key.equalsIgnoreCase(key))

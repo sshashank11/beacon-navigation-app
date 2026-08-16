@@ -1,5 +1,7 @@
 package com.beacon.api.hazards;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Locale;
 
 public enum Hazard {
@@ -25,10 +27,12 @@ public enum Hazard {
         this.key = key;
     }
 
+    @JsonValue
     public String key() {
         return key;
     }
 
+    @JsonCreator
     public static Hazard fromKey(String key) {
         String normalized = key.toLowerCase(Locale.ROOT);
         for (Hazard hazard : values()) {

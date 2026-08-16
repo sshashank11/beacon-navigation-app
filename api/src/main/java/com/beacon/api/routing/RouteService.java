@@ -24,6 +24,10 @@ public class RouteService {
     }
 
     public RouteResponse route(GHRequest request) {
+        return toResponse(routePath(request));
+    }
+
+    public ResponsePath routePath(GHRequest request) {
         GHResponse response = hopper.route(request);
         if (response.hasErrors()) {
             String message = response.getErrors().stream()
@@ -31,10 +35,10 @@ public class RouteService {
                     .collect(Collectors.joining("; "));
             throw new RouteNotFoundException(message);
         }
-        return toResponse(response.getBest());
+        return response.getBest();
     }
 
-    private static RouteResponse toResponse(ResponsePath path) {
+    static RouteResponse toResponse(ResponsePath path) {
         LineString lineString = path.getPoints().toLineString(false);
         List<List<Double>> coordinates = new ArrayList<>(lineString.getNumPoints());
         for (var coordinate : lineString.getCoordinates()) {

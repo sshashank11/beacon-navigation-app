@@ -152,7 +152,7 @@ def preview_segmentations(
     )
     try:
         samples = [
-            (reference, _download_image(image_client, reference.thumb_url))
+            (reference, download_image(image_client, reference.thumb_url))
             for reference in references
         ]
     finally:
@@ -250,7 +250,7 @@ def render_segmentation_previews(
     )
 
 
-def _download_image(client: httpx.Client, url: str) -> Image.Image:
+def download_image(client: httpx.Client, url: str) -> Image.Image:
     for attempt in range(DOWNLOAD_ATTEMPTS):
         response = client.get(url)
         if response.status_code != 429 and response.status_code < 500:

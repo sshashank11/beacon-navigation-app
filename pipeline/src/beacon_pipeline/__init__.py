@@ -39,6 +39,8 @@ def main() -> None:
             "ingest-dob-permits",
             "harvest-mapillary",
             "preview-segmentation",
+            "score-images",
+            "refresh-image-segment-features",
             "refresh-construction-scores",
             "build-hazard-fields",
             "prepare-osm",
@@ -63,7 +65,16 @@ def main() -> None:
         default=Path("../data/vision-preview"),
     )
     parser.add_argument("--sample-limit", type=int, default=20)
-    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument(
+        "--limit",
+        type=int,
+        help="cap how many unscored images score-images processes in one run",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        help="inference batch size; defaults per job (4 preview, 32 scoring)",
+    )
     parser.add_argument("--device")
     parser.add_argument("--force-download", action="store_true")
     parser.add_argument(
@@ -163,7 +174,7 @@ def main() -> None:
             settings.database_url,
             args.output_dir,
             sample_limit=args.sample_limit,
-            batch_size=args.batch_size,
+            batch_size=args.batch_size or 4,
             device=args.device,
         )
         print(
@@ -172,6 +183,36 @@ def main() -> None:
             f"{result.device} to {result.output_dir}"
         )
         print("detected classes: " + ", ".join(result.detected_classes))
+        return
+    if args.job == "score-images":
+        from beacon_pipeline.vision.score_images import (
+            DEFAULT_BATCH_SIZE,
+            score_unscored_images,
+        )
+
+        scored = score_unscored_images(
+            settings.database_url,
+            limit=args.limit,
+            batch_size=args.batch_size or DEFAULT_BATCH_SIZE,
+            device=args.device,
+        )
+        print(
+            "score-images: scored "
+            f"{scored.scored_count:,} image(s) as {scored.model_version} "
+            f"({scored.pending_count:,} still pending)"
+        )
+        return
+    if args.job == "refresh-image-segment-features":
+        from beacon_pipeline.vision.segment_features import (
+            refresh_image_segment_features,
+        )
+
+        features = refresh_image_segment_features(settings.database_url)
+        print(
+            "refresh-image-segment-features: aggregated "
+            f"{features.frame_count:,} frame(s) into "
+            f"{features.segment_count:,} segment(s)"
+        )
         return
     if args.job == "ingest-openaq":
         count = ingest_openaq(settings)

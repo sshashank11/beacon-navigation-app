@@ -15,18 +15,23 @@ would be a fabricated signal.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
+import httpx
 import numpy as np
+import psycopg
 from PIL import Image
 from rasterio.features import shapes
 from shapely.geometry import shape
 
 from beacon_pipeline.vision.segmentation import (
     ImageReference,
+    SegformerSegmenter,
     SemanticSegmenter,
     class_histogram,
+    download_image,
 )
 
 
@@ -46,6 +51,15 @@ MIN_INSTANCE_PIXELS = 16
 
 # Cityscapes cannot support construction detection. See the module docstring.
 CONSTRUCTION_SUPPORTED = False
+
+
+@dataclass(frozen=True)
+class ScoreImagesResult:
+    scored_count: int
+    pending_count: int
+    model_version: str
+    model_id: str
+    device: str
 
 
 @dataclass(frozen=True)
@@ -163,6 +177,153 @@ def count_instances(
         for geometry, value in shapes(source, mask=binary, connectivity=8)
         if value == 1 and shape(geometry).area >= minimum_area
     )
+
+
+def score_unscored_images(
+    database_url: str,
+    model_version: str = MODEL_VERSION,
+    limit: int | None = None,
+    batch_size: int = DEFAULT_BATCH_SIZE,
+    device: str | None = None,
+    segmenter: SemanticSegmenter | None = None,
+    client: httpx.Client | None = None,
+) -> ScoreImagesResult:
+    """Score every snapped image not yet analysed under ``model_version``.
+
+    Images already scored under this version are skipped, so the job is safe to
+    re-run and only pays for inference once per checkpoint.
+    """
+    references = load_unscored_images(database_url, model_version, limit)
+    if not references:
+        return ScoreImagesResult(0, 0, model_version, "", "")
+
+    owns_client = client is None
+    image_client = client or httpx.Client(
+        timeout=30.0,
+        follow_redirects=True,
+        headers={"User-Agent": "BeaconNavigationApp/0.1"},
+    )
+    try:
+        samples = [
+            (reference, download_image(image_client, reference.thumb_url))
+            for reference in references
+        ]
+    finally:
+        if owns_client:
+            image_client.close()
+
+    active_segmenter = segmenter or SegformerSegmenter.load(device=device)
+    metrics = score_frames(samples, active_segmenter, batch_size=batch_size)
+    scored = persist_frame_metrics(database_url, metrics, model_version)
+    return ScoreImagesResult(
+        scored_count=scored,
+        pending_count=count_unscored_images(database_url, model_version),
+        model_version=model_version,
+        model_id=active_segmenter.model_id,
+        device=active_segmenter.device,
+    )
+
+
+def load_unscored_images(
+    database_url: str,
+    model_version: str = MODEL_VERSION,
+    limit: int | None = None,
+) -> list[ImageReference]:
+    with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT image.mapillary_id, image.thumb_url
+            FROM street_image image
+            WHERE image.nearest_segment_id IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1
+                FROM image_analysis analysis
+                WHERE analysis.mapillary_id = image.mapillary_id
+                  AND analysis.model_version = %s
+              )
+            ORDER BY image.captured_at DESC, image.mapillary_id
+            LIMIT %s
+            """,
+            (model_version, limit),
+        )
+        return [ImageReference(str(row[0]), str(row[1])) for row in cursor.fetchall()]
+
+
+def count_unscored_images(
+    database_url: str,
+    model_version: str = MODEL_VERSION,
+) -> int:
+    with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT count(*)
+            FROM street_image image
+            WHERE image.nearest_segment_id IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1
+                FROM image_analysis analysis
+                WHERE analysis.mapillary_id = image.mapillary_id
+                  AND analysis.model_version = %s
+              )
+            """,
+            (model_version,),
+        )
+        row = cursor.fetchone()
+        return int(row[0]) if row else 0
+
+
+def persist_frame_metrics(
+    database_url: str,
+    metrics: Sequence[FrameMetrics],
+    model_version: str = MODEL_VERSION,
+) -> int:
+    rows = list(metrics)
+    if not rows:
+        return 0
+
+    with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
+        cursor.executemany(
+            """
+            INSERT INTO image_analysis
+              (mapillary_id, model_version, vegetation_frac, sky_frac, road_frac,
+               sidewalk_frac, sky_view_factor, vehicle_count, person_count,
+               construction_present, construction_conf, raw_class_hist,
+               analyzed_at)
+            VALUES
+              (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, now())
+            ON CONFLICT (mapillary_id, model_version) DO UPDATE SET
+              vegetation_frac = EXCLUDED.vegetation_frac,
+              sky_frac = EXCLUDED.sky_frac,
+              road_frac = EXCLUDED.road_frac,
+              sidewalk_frac = EXCLUDED.sidewalk_frac,
+              sky_view_factor = EXCLUDED.sky_view_factor,
+              vehicle_count = EXCLUDED.vehicle_count,
+              person_count = EXCLUDED.person_count,
+              construction_present = EXCLUDED.construction_present,
+              construction_conf = EXCLUDED.construction_conf,
+              raw_class_hist = EXCLUDED.raw_class_hist,
+              analyzed_at = EXCLUDED.analyzed_at
+            """,
+            [
+                (
+                    row.mapillary_id,
+                    model_version,
+                    row.vegetation_frac,
+                    row.sky_frac,
+                    row.road_frac,
+                    row.sidewalk_frac,
+                    row.sky_view_factor,
+                    row.vehicle_count,
+                    row.person_count,
+                    row.construction_present,
+                    row.construction_conf,
+                    json.dumps(row.class_histogram, sort_keys=True),
+                )
+                for row in rows
+            ],
+        )
+        connection.commit()
+    return len(rows)
 
 
 def _class_ids(labels: dict[int, str], class_names: frozenset[str]) -> set[int]:

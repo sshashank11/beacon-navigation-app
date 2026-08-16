@@ -12,7 +12,7 @@ from PIL import Image
 
 from beacon_pipeline.vision.segmentation import (
     ImageReference,
-    _download_image,
+    download_image,
     render_segmentation_previews,
 )
 
@@ -89,7 +89,7 @@ class SegmentationPreviewTest(unittest.TestCase):
             return httpx.Response(200, content=image_bytes.getvalue())
 
         with httpx.Client(transport=httpx.MockTransport(handle)) as client:
-            image = _download_image(client, "https://images.example/sample.png")
+            image = download_image(client, "https://images.example/sample.png")
 
         self.assertEqual(attempts, 2)
         self.assertEqual(image.size, (4, 3))

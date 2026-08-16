@@ -48,9 +48,21 @@ encoded values. The reference graph contains 1,132,204 edges, of which
 
 Scheduled air quality, pollen, weather alert, and construction ingestion,
 PostGIS hazard fields, Redis-cached GraphHopper areas, and the conditions API
-are also implemented. The next roadmap work begins at step 41: apply a PM2.5
-penalty with a GraphHopper `CustomModel` and prove that the health-aware route
-diverges from the shortest route before adding the map hazard overlay.
+are also implemented.
+
+Roadmap Checkpoint 3 is complete. The four-step trigger-profile onboarding flow
+seeds and tunes all 15 hazard weights, shows a debounced sample route preview,
+and feeds the active profile into three-variant routing. Route results display
+fastest, balanced, and cleanest options with distance, duration, and exposure
+trade-offs; selecting an option highlights it on the map. Completed routes are
+stored with UUIDs, and the post-route feedback flow records positive or negative
+feedback plus an optional instruction segment. A deterministic GraphHopper
+integration test proves asthma and allergy profiles choose different geometries
+for the same trip.
+
+Phase 4 steps 62-77 were implemented ahead of sequence. The next uncompleted
+roadmap work is step 78, routing-latency benchmarking, followed by the smoke-day
+fixture in step 79.
 
 ## Local development
 
@@ -122,3 +134,37 @@ curl -X POST http://localhost:8080/api/v1/routes \
 Supported modes are `foot` and `bike`; common aliases such as `walk` and
 `cycling` are also accepted. The response contains a GeoJSON LineString,
 `distance_m`, `duration_s`, and GraphHopper instruction details.
+
+## Profile-aware route comparison
+
+`POST /api/v1/routes/compare` accepts the active trigger profile and returns
+`fastest`, `balanced`, and `cleanest` routes. Each variant includes a route UUID,
+an exposure breakdown, comparative deltas against the fastest route, and detour
+cap metadata.
+
+```bash
+curl -X POST http://localhost:8080/api/v1/routes/compare \
+  -H "Content-Type: application/json" \
+  -d '{
+    "origin": [40.7484, -73.9857],
+    "destination": [40.7359, -73.9911],
+    "mode": "foot",
+    "preset": "asthma",
+    "weights": {},
+    "hard_avoids": [],
+    "max_grade_pct": 20,
+    "detour_tolerance": 0.25,
+    "conservatism": 1.0
+  }'
+```
+
+The onboarding preview uses `POST /api/v1/profiles/preview` with the same
+contract. Preview routes are intentionally not stored.
+
+Submit post-route feedback using a route UUID returned by the comparison:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/routes/<route-id>/feedback \
+  -H "Content-Type: application/json" \
+  -d '{"feltWorse": true, "whichSegments": [3]}'
+```

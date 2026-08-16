@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import unittest
 from datetime import datetime, timedelta, timezone
+from unittest import mock
 
+from beacon_pipeline.vision import segment_features as segment_features_module
 from beacon_pipeline.vision.segment_features import (
     TAU_YEARS_CROWD,
     TAU_YEARS_SKY_VIEW,
@@ -88,6 +90,48 @@ class CrowdDensityTest(unittest.TestCase):
         self.assertEqual(crowd_density({"road": 0.9, "sky": 0.1}), 0.0)
         self.assertEqual(crowd_density({}), 0.0)
         self.assertEqual(crowd_density(None), 0.0)
+
+
+class DaylightFilterTest(unittest.TestCase):
+    """Night frames must not reach aggregation; they read as false canyons."""
+
+    def _captured_sql(self, **kwargs: object) -> tuple[str, tuple]:
+        cursor = mock.MagicMock()
+        cursor.fetchall.return_value = []
+        cursor.__enter__ = mock.Mock(return_value=cursor)
+        cursor.__exit__ = mock.Mock(return_value=False)
+        connection = mock.MagicMock()
+        connection.cursor.return_value = cursor
+        connection.__enter__ = mock.Mock(return_value=connection)
+        connection.__exit__ = mock.Mock(return_value=False)
+
+        with mock.patch.object(
+            segment_features_module.psycopg, "connect", return_value=connection
+        ):
+            segment_features_module.load_scored_frames("postgresql://unused", **kwargs)
+        return cursor.execute.call_args[0][0], cursor.execute.call_args[0][1]
+
+    def test_daylight_window_is_passed_by_default(self) -> None:
+        sql, params = self._captured_sql()
+
+        self.assertIn("AT TIME ZONE", sql)
+        self.assertIn(True, params)
+        self.assertIn(segment_features_module.IMAGE_TIMEZONE, params)
+        self.assertIn(segment_features_module.DAYLIGHT_START_HOUR, params)
+        self.assertIn(segment_features_module.DAYLIGHT_END_HOUR, params)
+
+    def test_the_filter_can_be_turned_off(self) -> None:
+        _, params = self._captured_sql(daylight_only=False)
+
+        self.assertIn(False, params)
+
+    def test_the_window_covers_daytime_only(self) -> None:
+        self.assertLess(
+            segment_features_module.DAYLIGHT_START_HOUR,
+            segment_features_module.DAYLIGHT_END_HOUR,
+        )
+        self.assertGreaterEqual(segment_features_module.DAYLIGHT_START_HOUR, 6)
+        self.assertLessEqual(segment_features_module.DAYLIGHT_END_HOUR, 19)
 
 
 class AggregateSegmentFeaturesTest(unittest.TestCase):

@@ -42,6 +42,16 @@ TAU_YEARS_CROWD = 0.5
 
 CROWD_CLASSES = VEHICLE_CLASSES | PERSON_CLASSES
 
+# Sky detection needs daylight. After dark the model reads the sky as unlit
+# structure, which collapses the sky view factor toward zero and makes an open
+# street look like a canyon. Measured on the NoMad corridor, night frames
+# average a sky view factor of 0.006 against 0.086 for daylight frames on the
+# same streets. Night frames are still scored and kept for the route filmstrip;
+# they are only barred from driving routing scores.
+IMAGE_TIMEZONE = "America/New_York"
+DAYLIGHT_START_HOUR = 8
+DAYLIGHT_END_HOUR = 17
+
 
 @dataclass(frozen=True)
 class ScoredFrame:
@@ -62,6 +72,7 @@ class SegmentImageSample:
 @dataclass(frozen=True)
 class SegmentFeatureResult:
     frame_count: int
+    excluded_dark_count: int
     segment_count: int
     model_version: str
 
@@ -70,13 +81,17 @@ def refresh_image_segment_features(
     database_url: str,
     model_version: str = MODEL_VERSION,
     now: datetime | None = None,
+    daylight_only: bool = True,
 ) -> SegmentFeatureResult:
-    frames = load_scored_frames(database_url, model_version)
+    frames = load_scored_frames(database_url, model_version, daylight_only)
     samples = aggregate_segment_features(frames, now)
     _replace_segment_samples(database_url, samples, model_version)
     _refresh_image_percentiles(database_url)
     return SegmentFeatureResult(
         frame_count=len(frames),
+        excluded_dark_count=(
+            count_dark_frames(database_url, model_version) if daylight_only else 0
+        ),
         segment_count=len(samples),
         model_version=model_version,
     )
@@ -156,6 +171,7 @@ def weighted_median(values: Sequence[float], weights: Sequence[float]) -> float:
 def load_scored_frames(
     database_url: str,
     model_version: str = MODEL_VERSION,
+    daylight_only: bool = True,
 ) -> list[ScoredFrame]:
     with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
         cursor.execute(
@@ -170,8 +186,20 @@ def load_scored_frames(
               ON image.mapillary_id = analysis.mapillary_id
             WHERE analysis.model_version = %s
               AND image.nearest_segment_id IS NOT NULL
+              AND (
+                NOT %s
+                OR extract(
+                  hour from image.captured_at AT TIME ZONE %s
+                ) BETWEEN %s AND %s
+              )
             """,
-            (model_version,),
+            (
+                model_version,
+                daylight_only,
+                IMAGE_TIMEZONE,
+                DAYLIGHT_START_HOUR,
+                DAYLIGHT_END_HOUR,
+            ),
         )
         return [
             ScoredFrame(
@@ -182,6 +210,30 @@ def load_scored_frames(
             )
             for row in cursor.fetchall()
         ]
+
+
+def count_dark_frames(
+    database_url: str,
+    model_version: str = MODEL_VERSION,
+) -> int:
+    """Scored frames held back from aggregation for being outside daylight."""
+    with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT count(*)
+            FROM image_analysis analysis
+            JOIN street_image image
+              ON image.mapillary_id = analysis.mapillary_id
+            WHERE analysis.model_version = %s
+              AND image.nearest_segment_id IS NOT NULL
+              AND extract(
+                hour from image.captured_at AT TIME ZONE %s
+              ) NOT BETWEEN %s AND %s
+            """,
+            (model_version, IMAGE_TIMEZONE, DAYLIGHT_START_HOUR, DAYLIGHT_END_HOUR),
+        )
+        row = cursor.fetchone()
+        return int(row[0]) if row else 0
 
 
 def crowd_density(class_histogram: dict[str, float] | None) -> float:

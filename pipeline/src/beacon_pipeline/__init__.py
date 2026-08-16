@@ -214,8 +214,10 @@ def main() -> None:
         features = refresh_image_segment_features(settings.database_url)
         print(
             "refresh-image-segment-features: aggregated "
-            f"{features.frame_count:,} frame(s) into "
-            f"{features.segment_count:,} segment(s)"
+            f"{features.frame_count:,} daylight frame(s) into "
+            f"{features.segment_count:,} segment(s); "
+            f"held back {features.excluded_dark_count:,} frame(s) captured "
+            "outside daylight"
         )
         return
     if args.job == "ingest-openaq":

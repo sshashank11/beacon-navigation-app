@@ -12,7 +12,11 @@ from beacon_pipeline.ingest.dob_permits import ingest_dob_permits
 from beacon_pipeline.ingest.nws import ingest_nws
 from beacon_pipeline.ingest.openaq import ingest_openaq
 from beacon_pipeline.ingest.pollen import ingest_pollen
-from beacon_pipeline.model.hazard_fields import build_hazard_fields, refresh_construction_scores
+from beacon_pipeline.model.hazard_fields import (
+    build_hazard_fields,
+    refresh_construction_scores,
+)
+from beacon_pipeline.nyccas import refresh_nyccas_scores
 from beacon_pipeline.osm import DEFAULT_OSM_DATA_DIR, prepare_osm_data
 
 
@@ -31,12 +35,14 @@ def main() -> None:
             "prepare-osm",
             "extract-segments",
             "enrich-elevation",
+            "refresh-nyccas-scores",
             "serve",
         ],
     )
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_OSM_DATA_DIR)
     parser.add_argument("--osm-path", type=Path, default=DEFAULT_OSM_PATH)
     parser.add_argument("--dem-dir", type=Path)
+    parser.add_argument("--raster-dir", type=Path)
     parser.add_argument("--force-download", action="store_true")
     args = parser.parse_args()
 
@@ -69,6 +75,23 @@ def main() -> None:
             f"{result.graded_count:,}/{result.segment_count:,} segments "
             f"({result.minimum_grade_pct:.2f}% to {result.maximum_grade_pct:.2f}%, "
             f"{result.clamped_count:,} clamped)"
+        )
+        return
+    if args.job == "refresh-nyccas-scores":
+        result = refresh_nyccas_scores(
+            settings.database_url,
+            args.raster_dir or settings.nyccas_raster_dir,
+            force_download=args.force_download,
+        )
+        years = ", ".join(
+            f"{pollutant} year {year}"
+            for pollutant, year in result.raster_years.items()
+        )
+        print(
+            "refresh-nyccas-scores: sampled "
+            f"{result.sampled_count:,}/{result.segment_count:,} segments "
+            f"(PM2.5 {result.pm25_count:,}, NO2 {result.no2_count:,}, "
+            f"ozone {result.ozone_count:,}; {years})"
         )
         return
     if args.job == "ingest-openaq":

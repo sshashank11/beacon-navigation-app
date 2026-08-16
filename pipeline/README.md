@@ -92,3 +92,20 @@ GeoTIFFs from the public [USGS 3DEP collection](https://data.usgs.gov/datacatalo
 Rasterio samples each segment endpoint, computes signed grade, and clamps DEM
 noise to +/-20%. The reference run graded all 580,211 segments; 0.473% reached
 the clamp, with the 5th and 95th percentiles at -3.60% and 3.56%.
+
+## NYCCAS pollution priors
+
+Download the current NYC Community Air Survey archive, select its newest model
+year, and refresh the segment pollution percentiles with:
+
+```bash
+uv run beacon-pipeline refresh-nyccas-scores \
+  --raster-dir ../data/nyccas
+```
+
+The job reads the official NYC Open Data attachment metadata instead of pinning
+an attachment URL. It extracts the newest annual PM2.5 and NO2 grids and summer
+ozone grid, reprojects each source from NAD83 New York Long Island State Plane
+feet to EPSG:4326, and samples one or three points per segment. Raw values remain
+in `segment_nyccas_sample`; comparable 0-100 percentile ranks are written to
+`segment_static_score`.

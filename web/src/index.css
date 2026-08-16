@@ -14,6 +14,47 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow: hidden;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+.route-panel {
+  width: 360px;
+}
+
+.maplibregl-ctrl-group {
+  border-radius: 0;
+  box-shadow: 0 1px 4px rgb(23 34 28 / 18%);
+}
+
+.maplibregl-ctrl-group button {
+  width: 36px;
+  height: 36px;
+}
+
+@media (max-width: 767px) {
+  body {
+    overflow: auto;
+  }
+
+  .route-workspace {
+    min-height: 720px;
+    flex-direction: column-reverse;
+  }
+
+  .route-panel {
+    width: 100%;
+    min-height: 430px;
+    border-top: 1px solid #d4dcd7;
+    border-right: 0;
+  }
 }
 
 .conditions-scroll {

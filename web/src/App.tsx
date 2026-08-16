@@ -1,12 +1,11 @@
 import { ConditionsBanner } from './components/ConditionsBanner'
+import { RoutePlanner } from './components/RoutePlanner'
 
 function App() {
   return (
-    <div className="flex min-h-screen flex-col bg-[#eef2ef] text-[#17211b]">
+    <div className="flex h-dvh min-h-[600px] flex-col bg-[#eef2ef] text-[#17211b]">
       <ConditionsBanner />
-      <main className="grid flex-1 place-items-center px-6">
-        <h1 className="text-4xl font-semibold">Beacon</h1>
-      </main>
+      <RoutePlanner />
     </div>
   )
 }

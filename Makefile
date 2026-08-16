@@ -1,4 +1,4 @@
-.PHONY: up down db api pipeline web osm
+.PHONY: up down db api pipeline web osm check check-api check-pipeline check-web
 
 up:
 	docker compose up -d
@@ -20,3 +20,15 @@ web:
 
 osm:
 	cd pipeline && uv run beacon-pipeline prepare-osm
+
+check: check-api check-pipeline check-web
+
+check-api:
+	cd api && ./gradlew test
+
+check-pipeline:
+	cd pipeline && uv run --with pytest pytest
+
+check-web:
+	cd web && npm run lint
+	cd web && npm run build

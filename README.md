@@ -60,9 +60,11 @@ feedback plus an optional instruction segment. A deterministic GraphHopper
 integration test proves asthma and allergy profiles choose different geometries
 for the same trip.
 
-Phase 4 steps 62-77 were implemented ahead of sequence. The next uncompleted
-roadmap work is step 78, routing-latency benchmarking, followed by the smoke-day
-fixture in step 79.
+Phase 4 is complete. A deterministic GraphHopper fixture proves that a
+wildfire-level PM2.5 reading and its live hazard field shift the same trip away
+from the clear-day route. The live-stack demo also benchmarks the configured
+20-area budget and enforces a 200 ms p95 latency target. The builder prioritizes
+severe bands across hazards before applying that cap.
 
 ## Local development
 
@@ -114,6 +116,17 @@ Run the backend and pipeline test suites with:
 cd api && ./gradlew test
 cd ../pipeline && uv run --with pytest pytest
 ```
+
+With Docker services and the API running, exercise the clear-day/smoke-day
+checkpoint and routing benchmark with:
+
+```powershell
+.\scripts\smoke-day-demo.ps1
+```
+
+The script temporarily seeds clean and wildfire PM2.5 readings plus 20 hazard
+areas, verifies a measurable route shift, reports median and p95 latency, and
+then restores the prior live snapshots.
 
 ## Route API
 

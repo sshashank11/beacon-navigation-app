@@ -64,7 +64,8 @@ public class HazardFieldService {
             return new JsonFeature(
                     areaName(entry),
                     "Feature",
-                    geometry.getEnvelopeInternal(),
+                    // GraphHopper rejects custom-model areas with a populated GeoJSON bbox.
+                    null,
                     geometry,
                     Map.of(
                             "hazard", entry.hazard(),

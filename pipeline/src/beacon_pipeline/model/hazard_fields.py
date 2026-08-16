@@ -15,7 +15,7 @@ from shapely.ops import unary_union
 from beacon_pipeline.config import Settings
 
 
-MAX_HAZARD_FIELDS = 40
+MAX_HAZARD_FIELDS = 20
 ROUTABLE_RASTER_HAZARDS = {"pm25", "ozone", "no2"}
 
 
@@ -48,8 +48,17 @@ def build_hazard_fields(settings: Settings) -> int:
             bands.extend(_bands_from_raster(raster_path, means[hazard]))
 
     bands.extend(_construction_bands(settings.database_url))
-    bands.sort(key=lambda band: (band.hazard, band.severity))
-    return _write_hazard_fields(settings.database_url, bands[:MAX_HAZARD_FIELDS])
+    return _write_hazard_fields(
+        settings.database_url,
+        _prioritize_hazard_fields(bands),
+    )
+
+
+def _prioritize_hazard_fields(bands: list[HazardBand]) -> list[HazardBand]:
+    return sorted(
+        bands,
+        key=lambda band: (-band.severity, band.hazard, -band.band_max),
+    )[:MAX_HAZARD_FIELDS]
 
 
 def refresh_construction_scores(database_url: str) -> int:

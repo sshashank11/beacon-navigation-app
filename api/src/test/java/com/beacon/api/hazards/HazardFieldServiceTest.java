@@ -34,6 +34,7 @@ class HazardFieldServiceTest {
 
         assertThat(service.currentAreas()).singleElement().satisfies(area -> {
             assertThat(area.getId()).isEqualTo("pm25_severe");
+            assertThat(area.getBBox()).isNull();
             assertThat(area.getProperty("severity")).isEqualTo((short) 4);
             assertThat(area.getGeometry().isValid()).isTrue();
         });

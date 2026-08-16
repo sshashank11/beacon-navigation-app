@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { ProfileRoutePreview } from './ProfileRoutePreview'
 import {
   type ConditionId,
   type HazardId,
@@ -185,7 +186,7 @@ export function OnboardingFlow({ canClose, onClose }: OnboardingFlowProps) {
         </nav>
 
         <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-4xl px-5 py-8 sm:px-8 md:py-10">
+          <div className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 md:py-10">
             {step === 0 && (
               <section aria-labelledby="conditions-title">
                 <StepHeading eyebrow="Sensitivities" title="What should Beacon account for?" detail="Choose any that apply. You can tune every priority on the next screen." id="conditions-title" />
@@ -221,23 +222,34 @@ export function OnboardingFlow({ canClose, onClose }: OnboardingFlowProps) {
             {step === 1 && (
               <section aria-labelledby="weights-title">
                 <StepHeading eyebrow="Priorities" title="Tune what matters on your route" detail="Set each factor from ignore to high. Your selections have already seeded a starting point." id="weights-title" />
-                <div className="mt-7 space-y-8">
-                  {hazardGroups.map((group) => (
-                    <div key={group.label}>
-                      <h3 className="border-b border-[#d9e0db] pb-2 text-xs font-bold uppercase text-[#5f7066]">{group.label}</h3>
-                      <div className="grid gap-x-10 lg:grid-cols-2">
-                        {group.hazards.map((hazard) => (
-                          <WeightControl
-                            key={hazard.id}
-                            hazard={hazard.id}
-                            label={hazard.label}
-                            value={profile.weights[hazard.id]}
-                            onChange={profile.setWeight}
-                          />
-                        ))}
+                <div className="mt-7 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+                  <div className="space-y-8">
+                    {hazardGroups.map((group) => (
+                      <div key={group.label}>
+                        <h3 className="border-b border-[#d9e0db] pb-2 text-xs font-bold uppercase text-[#5f7066]">{group.label}</h3>
+                        <div>
+                          {group.hazards.map((hazard) => (
+                            <WeightControl
+                              key={hazard.id}
+                              hazard={hazard.id}
+                              label={hazard.label}
+                              value={profile.weights[hazard.id]}
+                              onChange={profile.setWeight}
+                            />
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                  <div className="order-first lg:order-last lg:sticky lg:top-0">
+                    <ProfileRoutePreview
+                      weights={profile.weights}
+                      hardAvoids={profile.hardAvoids}
+                      maxGradePct={profile.maxGradePct}
+                      detourTolerance={profile.detourTolerance}
+                      conservatism={profile.conservatism}
+                    />
+                  </div>
                 </div>
               </section>
             )}

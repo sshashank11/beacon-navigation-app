@@ -19,6 +19,7 @@ public class SecurityConfiguration {
                         .requestMatchers(
                                 "/api/v1/conditions/**",
                                 "/api/v1/hazard-fields/**",
+                                "/api/v1/profiles/preview",
                                 "/api/v1/routes/**",
                                 "/api/v1/tiles/**")
                         .permitAll()

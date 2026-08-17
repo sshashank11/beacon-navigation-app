@@ -73,7 +73,7 @@ class RouteComparisonServiceTest {
         assertThat(response.cleanest().detourCapExceeded()).isTrue();
         assertThat(response.cleanest().comparativeDiff()).containsEntry("pm25", -0.22);
         verify(conditions).seasonalGates();
-        verify(history, times(3)).save(any(), any(), any(), any());
+        verify(history, times(3)).save(any(), any(), any(), any(), any());
     }
 
     private static ResponsePath path(double distance, int score) {

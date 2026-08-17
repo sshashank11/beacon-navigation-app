@@ -19,10 +19,15 @@ public class RouteController {
 
     private final RouteService routeService;
     private final RouteComparisonService comparisonService;
+    private final com.beacon.api.users.CallerResolver callers;
 
-    public RouteController(RouteService routeService, RouteComparisonService comparisonService) {
+    public RouteController(
+            RouteService routeService,
+            RouteComparisonService comparisonService,
+            com.beacon.api.users.CallerResolver callers) {
         this.routeService = routeService;
         this.comparisonService = comparisonService;
+        this.callers = callers;
     }
 
     @PostMapping
@@ -42,11 +47,14 @@ public class RouteController {
 
     @PostMapping("/compare")
     public RouteComparisonResponse compare(
-            @Valid @RequestBody RouteComparisonRequest routeRequest
+            @Valid @RequestBody RouteComparisonRequest routeRequest,
+            java.security.Principal principal
     ) {
         validatePoint(routeRequest.origin(), "origin");
         validatePoint(routeRequest.destination(), "destination");
-        return comparisonService.compare(routeRequest);
+        // Routing stays open to anonymous callers; only signed-in requests
+        // leave a history that can be read back later.
+        return comparisonService.compare(routeRequest, callers.resolve(principal));
     }
 
     private static void validatePoint(List<Double> point, String name) {

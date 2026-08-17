@@ -29,25 +29,33 @@ public class RouteAnalysisController {
     private final RouteAnalysisService analysis;
     private final AnalysisStreamer streamer;
     private final ExecutorService streamExecutor;
+    private final com.beacon.api.users.CallerResolver callers;
 
     public RouteAnalysisController(
             RouteAnalysisService analysis,
             AnalysisStreamer streamer,
-            ExecutorService analysisStreamExecutor) {
+            ExecutorService analysisStreamExecutor,
+            com.beacon.api.users.CallerResolver callers) {
         this.analysis = analysis;
         this.streamer = streamer;
         this.streamExecutor = analysisStreamExecutor;
+        this.callers = callers;
     }
 
     @PostMapping("/routes/{routeId}/analysis")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public RouteAnalysisService.AnalysisAccepted request(@PathVariable UUID routeId) {
-        return analysis.request(routeId);
+    public RouteAnalysisService.AnalysisAccepted request(
+            @PathVariable UUID routeId,
+            java.security.Principal principal) {
+        return analysis.request(routeId, callers.require(principal));
     }
 
     @GetMapping("/analysis/{analysisId}")
-    public AnalysisSnapshot snapshot(@PathVariable UUID analysisId) {
-        RouteAnalysisRepository.AnalysisSummary summary = analysis.require(analysisId);
+    public AnalysisSnapshot snapshot(
+            @PathVariable UUID analysisId,
+            java.security.Principal principal) {
+        RouteAnalysisRepository.AnalysisSummary summary =
+                analysis.require(analysisId, callers.require(principal));
         List<AnalysisFrame> frames = analysis.frames(analysisId);
         return new AnalysisSnapshot(
                 summary.id(),
@@ -63,8 +71,10 @@ public class RouteAnalysisController {
      */
     @GetMapping(path = "/analysis/{analysisId}/stream",
             produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter stream(@PathVariable UUID analysisId) {
-        analysis.require(analysisId);
+    public SseEmitter stream(
+            @PathVariable UUID analysisId,
+            java.security.Principal principal) {
+        analysis.require(analysisId, callers.require(principal));
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
         streamExecutor.execute(() -> {
             try {

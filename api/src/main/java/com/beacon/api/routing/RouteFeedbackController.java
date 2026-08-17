@@ -17,17 +17,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class RouteFeedbackController {
 
     private final RouteFeedbackService feedback;
+    private final com.beacon.api.users.CallerResolver callers;
 
-    public RouteFeedbackController(RouteFeedbackService feedback) {
+    public RouteFeedbackController(
+            RouteFeedbackService feedback,
+            com.beacon.api.users.CallerResolver callers) {
         this.feedback = feedback;
+        this.callers = callers;
     }
 
     @PostMapping("/{routeId}/feedback")
     @ResponseStatus(HttpStatus.CREATED)
     public RouteFeedbackResponse submit(
             @PathVariable UUID routeId,
-            @Valid @RequestBody RouteFeedbackRequest request
+            @Valid @RequestBody RouteFeedbackRequest request,
+            java.security.Principal principal
     ) {
-        return feedback.submit(routeId, request);
+        return feedback.submit(routeId, callers.require(principal), request);
     }
 }

@@ -36,8 +36,10 @@ public class RouteAnalysisService {
      * <p>Returns immediately with an id the client can stream from; nothing
      * here waits on inference.
      */
-    public AnalysisAccepted request(UUID routeId) {
-        if (!routes.exists(routeId)) {
+    public AnalysisAccepted request(UUID routeId, UUID userId) {
+        // Not found rather than forbidden: confirming that a route exists but
+        // belongs to somebody else leaks more than it helps.
+        if (!routes.isOwnedBy(routeId, userId)) {
             throw new RouteNotFoundException("Unknown route " + routeId);
         }
 
@@ -76,9 +78,13 @@ public class RouteAnalysisService {
         return analyses.frames(analysisId, modelVersion);
     }
 
-    public RouteAnalysisRepository.AnalysisSummary require(UUID analysisId) {
-        return analyses.find(analysisId)
+    public RouteAnalysisRepository.AnalysisSummary require(UUID analysisId, UUID userId) {
+        RouteAnalysisRepository.AnalysisSummary summary = analyses.find(analysisId)
                 .orElseThrow(() -> new AnalysisNotFoundException(analysisId));
+        if (!routes.isOwnedBy(summary.routeId(), userId)) {
+            throw new AnalysisNotFoundException(analysisId);
+        }
+        return summary;
     }
 
     /** Marks an analysis ready once every sampled frame has been scored. */

@@ -13,8 +13,10 @@ public class RouteHistoryRepository {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String INSERT_ROUTE = """
             INSERT INTO route
-              (id, variant, geom, distance_m, duration_s, exposure_breakdown, instructions, computed_at)
+              (id, user_id, variant, geom, distance_m, duration_s, exposure_breakdown,
+               instructions, computed_at)
             VALUES (
+              ?,
               ?,
               ?,
               ST_SetSRID(ST_GeomFromGeoJSON(?), 4326),
@@ -34,6 +36,7 @@ public class RouteHistoryRepository {
 
     public void save(
             UUID id,
+            UUID userId,
             String variant,
             RouteResponse route,
             Map<String, Double> exposureBreakdown
@@ -41,6 +44,7 @@ public class RouteHistoryRepository {
         jdbcTemplate.update(
                 INSERT_ROUTE,
                 id,
+                userId,
                 variant,
                 json(route.geometry()),
                 route.distanceM(),
@@ -55,6 +59,21 @@ public class RouteHistoryRepository {
                 Boolean.class,
                 id);
         return Boolean.TRUE.equals(exists);
+    }
+
+    /**
+     * True when the account owns the route.
+     *
+     * <p>A route saved before signing in has no owner, so nobody can read it
+     * back. Knowing a UUID is not the same as being entitled to the record.
+     */
+    public boolean isOwnedBy(UUID routeId, UUID userId) {
+        Boolean owned = jdbcTemplate.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM route WHERE id = ? AND user_id = ?)",
+                Boolean.class,
+                routeId,
+                userId);
+        return Boolean.TRUE.equals(owned);
     }
 
     private String json(Object value) {

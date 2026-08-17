@@ -23,7 +23,8 @@ class RouteControllerTest {
         when(routeService.route(any(GHRequest.class))).thenReturn(expected);
         RouteController controller = new RouteController(
                 routeService,
-                mock(RouteComparisonService.class));
+                mock(RouteComparisonService.class),
+                mock(com.beacon.api.users.CallerResolver.class));
 
         assertThat(controller.create(new RouteRequest(
                 List.of(40.7500, -73.9900),
@@ -45,7 +46,8 @@ class RouteControllerTest {
         when(routeService.route(any(GHRequest.class))).thenReturn(mock(RouteResponse.class));
         RouteController controller = new RouteController(
                 routeService,
-                mock(RouteComparisonService.class));
+                mock(RouteComparisonService.class),
+                mock(com.beacon.api.users.CallerResolver.class));
 
         controller.create(new RouteRequest(
                 List.of(40.7500, -73.9900),
@@ -66,7 +68,8 @@ class RouteControllerTest {
     void createRejectsCoordinatesOutsideGeographicBounds() {
         RouteController controller = new RouteController(
                 mock(RouteService.class),
-                mock(RouteComparisonService.class));
+                mock(RouteComparisonService.class),
+                mock(com.beacon.api.users.CallerResolver.class));
 
         assertThatThrownBy(() -> controller.create(new RouteRequest(
                 List.of(91.0, -73.9900),
@@ -91,12 +94,17 @@ class RouteControllerTest {
                 null,
                 null,
                 null);
-        when(comparisonService.compare(request)).thenReturn(expected);
+        com.beacon.api.users.CallerResolver callers =
+                mock(com.beacon.api.users.CallerResolver.class);
+        when(callers.resolve(null)).thenReturn(null);
+        when(comparisonService.compare(request, null)).thenReturn(expected);
         RouteController controller = new RouteController(
                 mock(RouteService.class),
-                comparisonService);
+                comparisonService,
+                callers);
 
-        assertThat(controller.compare(request)).isSameAs(expected);
-        verify(comparisonService).compare(request);
+        // An anonymous caller still routes; the comparison simply has no owner.
+        assertThat(controller.compare(request, null)).isSameAs(expected);
+        verify(comparisonService).compare(request, null);
     }
 }

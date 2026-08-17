@@ -22,6 +22,11 @@ public class UserService {
         return users.create(normalized, passwordEncoder.encode(rawPassword));
     }
 
+    /** Deletes the account and every route and feedback row it owns. */
+    public void delete(java.util.UUID id) {
+        users.deleteById(id);
+    }
+
     public AppUser require(String email) {
         return users.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Unknown account"));

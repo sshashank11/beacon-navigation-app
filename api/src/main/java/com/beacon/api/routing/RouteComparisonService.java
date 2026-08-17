@@ -36,14 +36,25 @@ public class RouteComparisonService {
     }
 
     public RouteComparisonResponse compare(RouteComparisonRequest request) {
-        return compare(request, true);
+        return compare(request, (UUID) null);
+    }
+
+    /**
+     * Compares route variants, recording them against an account when there
+     * is one. An anonymous request still routes; it just leaves no history.
+     */
+    public RouteComparisonResponse compare(RouteComparisonRequest request, UUID userId) {
+        return compare(request, true, userId);
     }
 
     public RouteComparisonResponse preview(RouteComparisonRequest request) {
-        return compare(request, false);
+        return compare(request, false, null);
     }
 
-    private RouteComparisonResponse compare(RouteComparisonRequest request, boolean persist) {
+    private RouteComparisonResponse compare(
+            RouteComparisonRequest request,
+            boolean persist,
+            UUID userId) {
         TriggerProfile profile = request.toProfile();
         SeasonalGates gates = conditions.seasonalGates();
         ResponsePath fastestPath = routes.routePath(request(request, null));
@@ -65,11 +76,11 @@ public class RouteComparisonService {
                 fastestDistance * (1.0 + profile.getDetourTolerance() * 2.0));
 
         RouteComparisonResponse.ComparedRoute fastestResponse = response(
-                "fastest", fastest, fastestExposure, fastestDistance, persist);
+                "fastest", fastest, fastestExposure, fastestDistance, persist, userId);
         RouteComparisonResponse.ComparedRoute balancedResponse = response(
-                "balanced", balanced, fastestExposure, fastestDistance, persist);
+                "balanced", balanced, fastestExposure, fastestDistance, persist, userId);
         RouteComparisonResponse.ComparedRoute cleanestResponse = response(
-                "cleanest", cleanest, fastestExposure, fastestDistance, persist);
+                "cleanest", cleanest, fastestExposure, fastestDistance, persist, userId);
         return new RouteComparisonResponse(fastestResponse, balancedResponse, cleanestResponse);
     }
 
@@ -107,13 +118,14 @@ public class RouteComparisonService {
             Attempt attempt,
             Map<String, Double> fastestExposure,
             double fastestDistance,
-            boolean persist
+            boolean persist,
+            UUID userId
     ) {
         Map<String, Double> exposure = RouteExposureCalculator.calculate(attempt.path());
         RouteResponse route = RouteService.toResponse(attempt.path());
         UUID id = persist ? UUID.randomUUID() : null;
         if (persist) {
-            history.save(id, variant, route, exposure);
+            history.save(id, userId, variant, route, exposure);
         }
         return new RouteComparisonResponse.ComparedRoute(
                 id,

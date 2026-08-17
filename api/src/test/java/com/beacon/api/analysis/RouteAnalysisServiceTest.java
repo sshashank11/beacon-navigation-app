@@ -28,6 +28,7 @@ class RouteAnalysisServiceTest {
     private AnalysisQueue queue;
     private RouteAnalysisService service;
     private UUID routeId;
+    private UUID userId;
 
     @BeforeEach
     void setUp() {
@@ -37,7 +38,8 @@ class RouteAnalysisServiceTest {
         queue = mock(AnalysisQueue.class);
         service = new RouteAnalysisService(routes, sampler, analyses, queue, MODEL);
         routeId = UUID.randomUUID();
-        when(routes.exists(routeId)).thenReturn(true);
+        userId = UUID.randomUUID();
+        when(routes.isOwnedBy(routeId, userId)).thenReturn(true);
     }
 
     private SampledFrame frame(int seq, String id) {
@@ -47,9 +49,9 @@ class RouteAnalysisServiceTest {
     @Test
     void unknownRouteIsRejectedBeforeAnySamplingHappens() {
         UUID missing = UUID.randomUUID();
-        when(routes.exists(missing)).thenReturn(false);
+        when(routes.isOwnedBy(missing, userId)).thenReturn(false);
 
-        assertThatThrownBy(() -> service.request(missing))
+        assertThatThrownBy(() -> service.request(missing, userId))
                 .isInstanceOf(RouteNotFoundException.class);
         verify(sampler, never()).sample(any());
     }
@@ -58,7 +60,7 @@ class RouteAnalysisServiceTest {
     void aRouteWithoutImageryIsRecordedRatherThanFailing() {
         when(sampler.sample(routeId)).thenReturn(List.of());
 
-        RouteAnalysisService.AnalysisAccepted accepted = service.request(routeId);
+        RouteAnalysisService.AnalysisAccepted accepted = service.request(routeId, userId);
 
         assertThat(accepted.status()).isEqualTo(AnalysisStatus.NO_IMAGERY);
         assertThat(accepted.frameCount()).isZero();
@@ -73,7 +75,7 @@ class RouteAnalysisServiceTest {
         when(sampler.sample(routeId)).thenReturn(List.of(frame(0, "a"), frame(1, "b")));
         when(analyses.unscoredImageIds(any(), eq(MODEL))).thenReturn(List.of("b"));
 
-        RouteAnalysisService.AnalysisAccepted accepted = service.request(routeId);
+        RouteAnalysisService.AnalysisAccepted accepted = service.request(routeId, userId);
 
         assertThat(accepted.status()).isEqualTo(AnalysisStatus.PENDING);
         assertThat(accepted.frameCount()).isEqualTo(2);
@@ -86,7 +88,7 @@ class RouteAnalysisServiceTest {
         when(sampler.sample(routeId)).thenReturn(List.of(frame(0, "a")));
         when(analyses.unscoredImageIds(any(), eq(MODEL))).thenReturn(List.of());
 
-        RouteAnalysisService.AnalysisAccepted accepted = service.request(routeId);
+        RouteAnalysisService.AnalysisAccepted accepted = service.request(routeId, userId);
 
         assertThat(accepted.status()).isEqualTo(AnalysisStatus.READY);
         assertThat(accepted.pendingCount()).isZero();
@@ -99,7 +101,7 @@ class RouteAnalysisServiceTest {
         when(sampler.sample(routeId)).thenReturn(List.of(frame(0, "a")));
         when(analyses.unscoredImageIds(any(), eq(MODEL))).thenReturn(List.of("a"));
 
-        service.request(routeId);
+        service.request(routeId, userId);
 
         var order = org.mockito.Mockito.inOrder(analyses, queue);
         order.verify(analyses).create(any(), any(), any(), anyInt(), anyString());
@@ -108,11 +110,47 @@ class RouteAnalysisServiceTest {
     }
 
     @Test
+    void anotherAccountsRouteIsNotFoundRatherThanForbidden() {
+        UUID stranger = UUID.randomUUID();
+        when(routes.isOwnedBy(routeId, stranger)).thenReturn(false);
+
+        // Telling a stranger the route exists but is not theirs is itself a
+        // disclosure, so the answer is the same as for a route that is absent.
+        assertThatThrownBy(() -> service.request(routeId, stranger))
+                .isInstanceOf(RouteNotFoundException.class);
+        verify(sampler, never()).sample(any());
+        verify(analyses, never()).create(any(), any(), any(), anyInt(), anyString());
+    }
+
+    @Test
+    void anAnalysisOfAnotherAccountsRouteCannotBeRead() {
+        UUID analysisId = UUID.randomUUID();
+        UUID stranger = UUID.randomUUID();
+        when(analyses.find(analysisId)).thenReturn(java.util.Optional.of(
+                new RouteAnalysisRepository.AnalysisSummary(
+                        analysisId, routeId, "ready", 3, MODEL)));
+        when(routes.isOwnedBy(routeId, stranger)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.require(analysisId, stranger))
+                .isInstanceOf(AnalysisNotFoundException.class);
+    }
+
+    @Test
+    void theOwnerCanReadTheirOwnAnalysis() {
+        UUID analysisId = UUID.randomUUID();
+        when(analyses.find(analysisId)).thenReturn(java.util.Optional.of(
+                new RouteAnalysisRepository.AnalysisSummary(
+                        analysisId, routeId, "ready", 3, MODEL)));
+
+        assertThat(service.require(analysisId, userId).id()).isEqualTo(analysisId);
+    }
+
+    @Test
     void missingAnalysisIsReportedAsNotFound() {
         UUID unknown = UUID.randomUUID();
         when(analyses.find(unknown)).thenReturn(java.util.Optional.empty());
 
-        assertThatThrownBy(() -> service.require(unknown))
+        assertThatThrownBy(() -> service.require(unknown, userId))
                 .isInstanceOf(AnalysisNotFoundException.class);
     }
 }

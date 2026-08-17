@@ -17,12 +17,15 @@ class RouteFeedbackControllerTest {
         UUID routeId = UUID.randomUUID();
         RouteFeedbackRequest request = new RouteFeedbackRequest(true, List.of(1));
         RouteFeedbackResponse expected = mock(RouteFeedbackResponse.class);
-        when(feedback.submit(routeId, request)).thenReturn(expected);
+        when(feedback.submit(routeId, null, request)).thenReturn(expected);
 
-        RouteFeedbackResponse response = new RouteFeedbackController(feedback)
-                .submit(routeId, request);
+        com.beacon.api.users.CallerResolver callers =
+                mock(com.beacon.api.users.CallerResolver.class);
+        when(callers.require(null)).thenReturn(null);
+        RouteFeedbackResponse response = new RouteFeedbackController(feedback, callers)
+                .submit(routeId, request, null);
 
         assertThat(response).isSameAs(expected);
-        verify(feedback).submit(routeId, request);
+        verify(feedback).submit(routeId, null, request);
     }
 }

@@ -30,6 +30,17 @@ public class UserRepository {
         return new AppUser(id, email, passwordHash);
     }
 
+    /**
+     * Removes the account and everything hanging off it.
+     *
+     * <p>Routes cascade from the foreign key, and route feedback cascades from
+     * routes, so one delete clears the lot. Returns false when the account was
+     * already gone, which keeps repeated requests harmless.
+     */
+    public boolean deleteById(UUID id) {
+        return jdbcTemplate.update("DELETE FROM app_user WHERE id = ?", id) > 0;
+    }
+
     public Optional<AppUser> findByEmail(String email) {
         return jdbcTemplate.query(
                 "SELECT id, email, password_hash FROM app_user WHERE lower(email) = lower(?)",

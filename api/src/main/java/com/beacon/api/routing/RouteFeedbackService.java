@@ -33,8 +33,11 @@ public class RouteFeedbackService {
         this.clock = clock;
     }
 
-    public RouteFeedbackResponse submit(UUID routeId, RouteFeedbackRequest request) {
-        if (!routes.exists(routeId)) {
+    public RouteFeedbackResponse submit(
+            UUID routeId,
+            UUID userId,
+            RouteFeedbackRequest request) {
+        if (!routes.isOwnedBy(routeId, userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Route was not found");
         }
         UUID id = UUID.randomUUID();

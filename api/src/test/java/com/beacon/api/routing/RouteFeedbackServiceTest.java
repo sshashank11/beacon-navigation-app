@@ -2,6 +2,7 @@ package com.beacon.api.routing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -24,7 +25,8 @@ class RouteFeedbackServiceTest {
         RouteFeedbackRepository feedback = mock(RouteFeedbackRepository.class);
         UUID routeId = UUID.randomUUID();
         Instant now = Instant.parse("2026-08-16T20:00:00Z");
-        when(routes.exists(routeId)).thenReturn(true);
+        UUID owner = UUID.randomUUID();
+        when(routes.isOwnedBy(routeId, owner)).thenReturn(true);
         RouteFeedbackService service = new RouteFeedbackService(
                 routes,
                 feedback,
@@ -32,6 +34,7 @@ class RouteFeedbackServiceTest {
 
         RouteFeedbackResponse response = service.submit(
                 routeId,
+                owner,
                 new RouteFeedbackRequest(true, List.of(2, 3)));
 
         assertThat(response.routeId()).isEqualTo(routeId);
@@ -46,7 +49,7 @@ class RouteFeedbackServiceTest {
         RouteHistoryRepository routes = mock(RouteHistoryRepository.class);
         RouteFeedbackRepository feedback = mock(RouteFeedbackRepository.class);
         UUID routeId = UUID.randomUUID();
-        when(routes.exists(routeId)).thenReturn(false);
+        when(routes.isOwnedBy(any(), any())).thenReturn(false);
         RouteFeedbackService service = new RouteFeedbackService(
                 routes,
                 feedback,
@@ -54,6 +57,7 @@ class RouteFeedbackServiceTest {
 
         assertThatThrownBy(() -> service.submit(
                 routeId,
+                UUID.randomUUID(),
                 new RouteFeedbackRequest(false, List.of())))
                 .isInstanceOf(ResponseStatusException.class)
                 .satisfies(exception -> assertThat(((ResponseStatusException) exception).getStatusCode())

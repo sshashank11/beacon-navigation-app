@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import java.security.Principal;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,6 +38,18 @@ public class UserController {
     public AccountResponse me(Principal principal) {
         AppUser user = users.require(principal.getName());
         return new AccountResponse(user.id(), user.email());
+    }
+
+    /**
+     * Deletes the caller's account and all data derived from it.
+     *
+     * <p>Health-adjacent data should be removable on request, and the person
+     * it belongs to should not have to ask anyone to do it.
+     */
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAccount(Principal principal) {
+        users.delete(users.require(principal.getName()).id());
     }
 
     public record AccountResponse(UUID id, String email) {

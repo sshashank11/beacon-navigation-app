@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-import time
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -15,7 +14,9 @@ import numpy as np
 import psycopg
 from PIL import Image
 
-MODEL_ID = "nvidia/segformer-b0-finetuned-cityscapes-1024-1024"
+from beacon_pipeline.http import get_with_retry
+
+MODEL_ID ="nvidia/segformer-b0-finetuned-cityscapes-1024-1024"
 DEFAULT_SAMPLE_LIMIT = 20
 DOWNLOAD_ATTEMPTS = 4
 
@@ -251,18 +252,7 @@ def render_segmentation_previews(
 
 
 def download_image(client: httpx.Client, url: str) -> Image.Image:
-    for attempt in range(DOWNLOAD_ATTEMPTS):
-        response = client.get(url)
-        if response.status_code != 429 and response.status_code < 500:
-            break
-        if attempt == DOWNLOAD_ATTEMPTS - 1:
-            response.raise_for_status()
-        retry_after = response.headers.get("Retry-After")
-        try:
-            delay = float(retry_after) if retry_after else 2**attempt
-        except ValueError:
-            delay = 2**attempt
-        time.sleep(min(delay, 30.0))
+    response = get_with_retry(client, url, attempts=DOWNLOAD_ATTEMPTS)
     response.raise_for_status()
     with Image.open(BytesIO(response.content)) as source:
         return source.convert("RGB")

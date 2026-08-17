@@ -7,6 +7,7 @@ import httpx
 
 from beacon_pipeline.config import NYC_BBOX, Settings
 from beacon_pipeline.db import Reading, upsert_readings
+from beacon_pipeline.http import get_with_retry
 
 
 PARAMETER_TO_HAZARD = {
@@ -26,7 +27,8 @@ def ingest_openaq(settings: Settings) -> int:
     readings: list[Reading] = []
 
     with httpx.Client(base_url="https://api.openaq.org", headers=headers, timeout=30.0) as client:
-        locations = client.get(
+        locations = get_with_retry(
+            client,
             "/v3/locations",
             params={"bbox": bbox, "limit": 1000},
         )
@@ -48,7 +50,11 @@ def _read_location_hours(client: httpx.Client, location: dict[str, Any]) -> list
         if not hazard or not sensor_id:
             continue
 
-        response = client.get(f"/v3/sensors/{sensor_id}/hours", params={"limit": 24})
+        response = get_with_retry(
+            client,
+            f"/v3/sensors/{sensor_id}/hours",
+            params={"limit": 24},
+        )
         response.raise_for_status()
         for result in response.json().get("results", []):
             value = result.get("value")

@@ -28,12 +28,14 @@ def frame(
     age_years: float,
     sky_view_factor: float = 0.5,
     crowd: float = 0.1,
+    ego: float = 0.0,
 ) -> ScoredFrame:
     return ScoredFrame(
         segment_id=segment_id,
         captured_at=years_ago(age_years),
         sky_view_factor=sky_view_factor,
         crowd_density=crowd,
+        ego_vehicle_frac=ego,
     )
 
 
@@ -174,6 +176,32 @@ class AggregateSegmentFeaturesTest(unittest.TestCase):
 
         self.assertEqual(sample.sky_view_factor, 0.8)
         self.assertEqual(sample.crowd_density, 0.2)
+
+    def test_dashcam_frames_do_not_inflate_the_crowd_prior(self) -> None:
+        frames = [
+            frame(1, 0.0, crowd=0.9, ego=0.95),
+            frame(1, 0.0, crowd=0.1, ego=0.0),
+        ]
+
+        sample = aggregate_segment_features(frames, NOW)[0]
+
+        self.assertEqual(sample.crowd_density, 0.1)
+
+    def test_a_dashcam_frame_still_reports_its_sky(self) -> None:
+        # A dashboard blocks the road, not the sky, so canopy keeps the frame.
+        frames = [frame(1, 0.0, sky_view_factor=0.42, crowd=0.9, ego=0.95)]
+
+        sample = aggregate_segment_features(frames, NOW)[0]
+
+        self.assertEqual(sample.sky_view_factor, 0.42)
+
+    def test_a_segment_seen_only_by_dashcam_still_gets_a_crowd_value(self) -> None:
+        # Excluding every frame would leave a hole; fall back rather than drop.
+        frames = [frame(1, 0.0, crowd=0.7, ego=0.99)]
+
+        sample = aggregate_segment_features(frames, NOW)[0]
+
+        self.assertEqual(sample.crowd_density, 0.7)
 
     def test_no_frames_produce_no_samples(self) -> None:
         self.assertEqual(aggregate_segment_features([], NOW), [])

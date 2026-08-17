@@ -12,6 +12,7 @@ from PIL import Image
 from beacon_pipeline.vision import score_images as score_images_module
 from beacon_pipeline.vision.score_images import (
     PERSON_CLASSES,
+    ego_vehicle_fraction,
     VEHICLE_CLASSES,
     FrameMetrics,
     count_instances,
@@ -107,6 +108,36 @@ class InstanceCountTest(unittest.TestCase):
 
         self.assertEqual(count_instances(mask, LABELS, VEHICLE_CLASSES), 0)
         self.assertEqual(count_instances(mask, LABELS, PERSON_CLASSES), 0)
+
+
+class EgoVehicleTest(unittest.TestCase):
+    """A dashboard across the bottom of the frame is not traffic."""
+
+    def test_a_dashboard_band_reads_near_one(self) -> None:
+        mask = np.zeros((50, 40), dtype=np.int64)
+        mask[40:, :] = 4  # bottom 20% entirely the camera car
+
+        self.assertGreater(ego_vehicle_fraction(mask, LABELS), 0.95)
+
+    def test_traffic_spread_through_the_scene_reads_low(self) -> None:
+        mask = np.zeros((50, 40), dtype=np.int64)
+        mask[20:30, 2:12] = 4
+        mask[22:32, 20:30] = 4
+
+        self.assertLess(ego_vehicle_fraction(mask, LABELS), 0.2)
+
+    def test_an_empty_street_reads_zero(self) -> None:
+        self.assertEqual(
+            ego_vehicle_fraction(np.zeros((50, 40), dtype=np.int64), LABELS), 0.0
+        )
+
+    def test_metrics_carry_the_measurement(self) -> None:
+        mask = np.zeros((50, 40), dtype=np.int64)
+        mask[40:, :] = 4
+
+        metrics = derive_frame_metrics("dash", mask, LABELS)
+
+        self.assertGreater(metrics.ego_vehicle_frac, 0.95)
 
 
 class DeriveFrameMetricsTest(unittest.TestCase):

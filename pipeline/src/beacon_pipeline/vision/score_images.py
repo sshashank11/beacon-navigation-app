@@ -52,6 +52,20 @@ MIN_INSTANCE_PIXELS = 16
 # Cityscapes cannot support construction detection. See the module docstring.
 CONSTRUCTION_SUPPORTED = False
 
+# A dashcam shooting through a windshield puts the car's own dashboard across
+# the bottom of the frame. The model correctly calls it "car", but it is the
+# camera vehicle, not traffic, and counting it inflates the crowd prior on
+# every corridor covered by a driving sequence. Measuring the vehicle share of
+# the lowest rows separates that from a genuinely car-filled street, which
+# spreads vehicles across the frame rather than banding them along the bottom.
+EGO_VEHICLE_BAND_FRACTION = 0.2
+
+# A dashboard covers roughly a fifth of the frame, so a frame whose vehicle
+# pixels are below this cannot be occluded by one. Frames scored before the
+# ego measurement existed are re-scored only above this threshold, which
+# backfills the signal without paying to re-run the whole corridor.
+EGO_BACKFILL_CAR_FRACTION = 0.10
+
 
 @dataclass(frozen=True)
 class ScoreImagesResult:
@@ -73,6 +87,7 @@ class FrameMetrics:
     sky_view_factor: float
     vehicle_count: int
     person_count: int
+    ego_vehicle_frac: float = 0.0
     construction_present: bool = False
     construction_conf: float = 0.0
     class_histogram: dict[str, float] = field(default_factory=dict)
@@ -121,8 +136,30 @@ def derive_frame_metrics(
         sky_view_factor=sky_view_factor(mask, labels),
         vehicle_count=count_instances(mask, labels, VEHICLE_CLASSES),
         person_count=count_instances(mask, labels, PERSON_CLASSES),
+        ego_vehicle_frac=ego_vehicle_fraction(mask, labels),
         class_histogram=histogram,
     )
+
+
+def ego_vehicle_fraction(mask: np.ndarray, labels: dict[int, str]) -> float:
+    """Vehicle share of the lowest rows, i.e. how much is the camera car.
+
+    A value near one means the bottom of the frame is the dashboard of the
+    vehicle carrying the camera. Traffic on the street does not fill the
+    bottom band edge to edge, so this separates the two without needing a
+    classifier that knows what a dashboard is.
+    """
+    height, width = _frame_shape(mask)
+    if height == 0 or width == 0:
+        return 0.0
+
+    vehicle_ids = _class_ids(labels, VEHICLE_CLASSES)
+    if not vehicle_ids:
+        return 0.0
+
+    band_height = max(int(round(height * EGO_VEHICLE_BAND_FRACTION)), 1)
+    band = mask[height - band_height :, :]
+    return round(float(np.isin(band, list(vehicle_ids)).mean()), 6)
 
 
 def sky_view_factor(mask: np.ndarray, labels: dict[int, str]) -> float:
@@ -263,11 +300,17 @@ def load_unscored_images(
                 FROM image_analysis analysis
                 WHERE analysis.mapillary_id = image.mapillary_id
                   AND analysis.model_version = %s
+                  AND (
+                    analysis.ego_vehicle_frac IS NOT NULL
+                    OR coalesce(
+                         (analysis.raw_class_hist->>'car')::real, 0
+                       ) <= %s
+                  )
               )
             ORDER BY image.captured_at DESC, image.mapillary_id
             LIMIT %s
             """,
-            (model_version, limit),
+            (model_version, EGO_BACKFILL_CAR_FRACTION, limit),
         )
         return [ImageReference(str(row[0]), str(row[1])) for row in cursor.fetchall()]
 
@@ -287,9 +330,15 @@ def count_unscored_images(
                 FROM image_analysis analysis
                 WHERE analysis.mapillary_id = image.mapillary_id
                   AND analysis.model_version = %s
+                  AND (
+                    analysis.ego_vehicle_frac IS NOT NULL
+                    OR coalesce(
+                         (analysis.raw_class_hist->>'car')::real, 0
+                       ) <= %s
+                  )
               )
             """,
-            (model_version,),
+            (model_version, EGO_BACKFILL_CAR_FRACTION),
         )
         row = cursor.fetchone()
         return int(row[0]) if row else 0
@@ -310,10 +359,10 @@ def persist_frame_metrics(
             INSERT INTO image_analysis
               (mapillary_id, model_version, vegetation_frac, sky_frac, road_frac,
                sidewalk_frac, sky_view_factor, vehicle_count, person_count,
-               construction_present, construction_conf, raw_class_hist,
-               analyzed_at)
+               ego_vehicle_frac, construction_present, construction_conf,
+               raw_class_hist, analyzed_at)
             VALUES
-              (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, now())
+              (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, now())
             ON CONFLICT (mapillary_id, model_version) DO UPDATE SET
               vegetation_frac = EXCLUDED.vegetation_frac,
               sky_frac = EXCLUDED.sky_frac,
@@ -322,6 +371,7 @@ def persist_frame_metrics(
               sky_view_factor = EXCLUDED.sky_view_factor,
               vehicle_count = EXCLUDED.vehicle_count,
               person_count = EXCLUDED.person_count,
+              ego_vehicle_frac = EXCLUDED.ego_vehicle_frac,
               construction_present = EXCLUDED.construction_present,
               construction_conf = EXCLUDED.construction_conf,
               raw_class_hist = EXCLUDED.raw_class_hist,
@@ -338,6 +388,7 @@ def persist_frame_metrics(
                     row.sky_view_factor,
                     row.vehicle_count,
                     row.person_count,
+                    row.ego_vehicle_frac,
                     row.construction_present,
                     row.construction_conf,
                     json.dumps(row.class_histogram, sort_keys=True),

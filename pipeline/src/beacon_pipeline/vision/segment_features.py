@@ -52,6 +52,11 @@ IMAGE_TIMEZONE = "America/New_York"
 DAYLIGHT_START_HOUR = 8
 DAYLIGHT_END_HOUR = 17
 
+# Above this share of the lower frame, the vehicle pixels are the camera car
+# rather than traffic. Such frames still describe the sky and the canopy
+# honestly, so they are dropped from the crowd prior only.
+MAX_EGO_VEHICLE_FRAC = 0.5
+
 
 @dataclass(frozen=True)
 class ScoredFrame:
@@ -59,6 +64,12 @@ class ScoredFrame:
     captured_at: datetime
     sky_view_factor: float
     crowd_density: float
+    ego_vehicle_frac: float = 0.0
+
+    @property
+    def crowd_is_usable(self) -> bool:
+        """False when the frame is mostly the camera vehicle's own dashboard."""
+        return self.ego_vehicle_frac <= MAX_EGO_VEHICLE_FRAC
 
 
 @dataclass(frozen=True)
@@ -113,9 +124,13 @@ def aggregate_segment_features(
             recency_weight(frame.captured_at, reference_time, TAU_YEARS_SKY_VIEW)
             for frame in segment_frames
         ]
+        # A dashboard says nothing about how busy the street is.
+        crowd_frames = [
+            frame for frame in segment_frames if frame.crowd_is_usable
+        ] or segment_frames
         crowd_weights = [
             recency_weight(frame.captured_at, reference_time, TAU_YEARS_CROWD)
-            for frame in segment_frames
+            for frame in crowd_frames
         ]
         samples.append(
             SegmentImageSample(
@@ -125,7 +140,7 @@ def aggregate_segment_features(
                     sky_weights,
                 ),
                 crowd_density=weighted_median(
-                    [frame.crowd_density for frame in segment_frames],
+                    [frame.crowd_density for frame in crowd_frames],
                     crowd_weights,
                 ),
                 frame_count=len(segment_frames),
@@ -180,7 +195,8 @@ def load_scored_frames(
               image.nearest_segment_id,
               image.captured_at,
               analysis.sky_view_factor,
-              analysis.raw_class_hist
+              analysis.raw_class_hist,
+              analysis.ego_vehicle_frac
             FROM image_analysis analysis
             JOIN street_image image
               ON image.mapillary_id = analysis.mapillary_id
@@ -207,6 +223,7 @@ def load_scored_frames(
                 captured_at=row[1],
                 sky_view_factor=float(row[2]),
                 crowd_density=crowd_density(row[3]),
+                ego_vehicle_frac=float(row[4] or 0.0),
             )
             for row in cursor.fetchall()
         ]

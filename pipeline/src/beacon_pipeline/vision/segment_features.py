@@ -14,6 +14,12 @@ than decaying toward zero.
 ``segment_static_score.sky_view_factor`` is a benefit like ``shade_benefit``:
 a high percentile means open sky. A low percentile is the street canyon that
 traps particulates.
+
+Percentiles rank a segment against the other photographed segments, not
+against the city. Imagery covers a demo corridor, so "95th percentile sky
+view" means most open of the corridor, not of New York. Comparisons across
+neighbourhoods are not supported by this data, and the job reports its
+coverage so the limit stays visible rather than implied.
 """
 
 from __future__ import annotations
@@ -86,6 +92,14 @@ class SegmentFeatureResult:
     excluded_dark_count: int
     segment_count: int
     model_version: str
+    network_segment_count: int = 0
+
+    @property
+    def coverage_fraction(self) -> float:
+        """Share of the routable network these percentiles are ranked over."""
+        if self.network_segment_count <= 0:
+            return 0.0
+        return self.segment_count / self.network_segment_count
 
 
 def refresh_image_segment_features(
@@ -105,6 +119,7 @@ def refresh_image_segment_features(
         ),
         segment_count=len(samples),
         model_version=model_version,
+        network_segment_count=count_network_segments(database_url),
     )
 
 
@@ -227,6 +242,14 @@ def load_scored_frames(
             )
             for row in cursor.fetchall()
         ]
+
+
+def count_network_segments(database_url: str) -> int:
+    """Total routable segments, the denominator for imagery coverage."""
+    with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
+        cursor.execute("SELECT count(*) FROM segment")
+        row = cursor.fetchone()
+        return int(row[0]) if row else 0
 
 
 def count_dark_frames(

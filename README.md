@@ -73,6 +73,39 @@ optional SegFormer environment renders 20-image Cityscapes segmentation
 previews and records detected class fractions for review. Fine-tuning remains
 deferred until the baseline scoring pipeline can be evaluated end to end.
 
+## What the imagery scores do and do not claim
+
+The computer-vision scores are the least generalisable data in the project, so
+their limits are worth stating plainly.
+
+**Coverage is one corridor, not a city.** Mapillary harvesting is scoped to
+NoMad/Midtown South: 12,198 images snapped to 944 of 580,211 routable segments.
+Every other segment carries an explicit no-data sentinel rather than a zero, so
+routing rules skip it instead of treating an unphotographed street as the worst
+case.
+
+**Percentiles rank against photographed segments only.** A 95th-percentile sky
+view factor means most open of the harvested corridor, not of New York.
+Comparisons between neighbourhoods are not supported by this data. The
+aggregation job prints its coverage on every run so the denominator stays
+visible.
+
+**Sky view factor needs daylight.** After dark the model reads unlit sky as
+structure, which collapses the measurement: night frames on these streets
+average 0.006 against 0.086 for daylight frames. Aggregation uses frames
+captured between 08:00 and 17:00 local time. Night frames are still scored and
+kept for the route viewer.
+
+**Vehicle and person counts are a coarse proxy.** Semantic segmentation labels
+pixels, not objects, so vehicles that touch in frame merge into one component
+and dense traffic undercounts. The pixel fractions, not the counts, drive the
+crowd prior. Frames whose lower fifth is mostly vehicle are treated as dashcam
+shots of the camera car's own dashboard and excluded from the crowd prior.
+
+**Construction is not detected from imagery.** Cityscapes has no construction
+class, and inferring it from unrelated classes such as fences or walls would be
+fabricated. DOB permit data remains the source of truth.
+
 ## Local development
 
 Prerequisites: Java 21, Python 3.12, `uv`, and Docker Desktop.

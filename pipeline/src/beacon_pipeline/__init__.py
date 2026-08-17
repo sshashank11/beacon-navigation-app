@@ -223,6 +223,13 @@ def main() -> None:
             f"held back {features.excluded_dark_count:,} frame(s) captured "
             "outside daylight"
         )
+        print(
+            "refresh-image-segment-features: imagery covers "
+            f"{features.segment_count:,} of "
+            f"{features.network_segment_count:,} routable segment(s) "
+            f"({features.coverage_fraction:.2%}). Percentiles rank against "
+            "photographed segments only, not the whole city."
+        )
         return
     if args.job == "ingest-openaq":
         count = ingest_openaq(settings)

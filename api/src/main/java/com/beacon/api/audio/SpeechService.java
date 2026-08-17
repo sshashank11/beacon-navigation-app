@@ -21,11 +21,17 @@ public class SpeechService {
     private final List<TtsProvider> providers;
     private final SpeechCache cache;
     private final double speed;
+    private final com.beacon.api.observability.BeaconMetrics metrics;
 
-    public SpeechService(List<TtsProvider> providers, SpeechCache cache, TtsProperties properties) {
+    public SpeechService(
+            List<TtsProvider> providers,
+            SpeechCache cache,
+            TtsProperties properties,
+            com.beacon.api.observability.BeaconMetrics metrics) {
         this.providers = providers;
         this.cache = cache;
         this.speed = properties.speed();
+        this.metrics = metrics;
     }
 
     public boolean isAvailable() {
@@ -51,11 +57,13 @@ public class SpeechService {
             String key = SpeechCache.cacheKey(text, provider.voiceId(), speed);
             Optional<SpeechClip> cached = cache.find(key, "audio/mpeg");
             if (cached.isPresent()) {
+                metrics.recordSpeechRequest(true);
                 return Optional.of(new CachedClip(key, cached.get(), true));
             }
             try {
                 SpeechClip clip = provider.synthesize(text);
                 cache.put(key, clip);
+                metrics.recordSpeechRequest(false);
                 return Optional.of(new CachedClip(key, clip, false));
             } catch (RuntimeException exception) {
                 LOGGER.warn("Speech provider {} failed, trying the next: {}",

@@ -172,7 +172,7 @@ class CustomModelBuilderTest {
     private static CustomModelBuilder builder(List<JsonFeature> areas) {
         HazardFieldService fields = mock(HazardFieldService.class);
         when(fields.currentAreas()).thenReturn(areas);
-        return new CustomModelBuilder(new LiveHazardModelEnricher(fields));
+        return new CustomModelBuilder(new LiveHazardModelEnricher(fields, new com.beacon.api.observability.BeaconMetrics(new io.micrometer.core.instrument.simple.SimpleMeterRegistry())));
     }
 
     private static TriggerProfile profile(

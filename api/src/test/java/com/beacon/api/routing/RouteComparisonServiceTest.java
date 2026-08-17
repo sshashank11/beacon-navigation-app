@@ -56,7 +56,9 @@ class RouteComparisonServiceTest {
                 0.1,
                 null);
 
-        RouteComparisonResponse response = new RouteComparisonService(routes, models, conditions, history)
+        RouteComparisonResponse response = new RouteComparisonService(routes, models, conditions, history,
+                new com.beacon.api.observability.BeaconMetrics(
+                        new io.micrometer.core.instrument.simple.SimpleMeterRegistry()))
                 .compare(request);
 
         assertThat(response.fastest().route().distanceM()).isEqualTo(1_000);

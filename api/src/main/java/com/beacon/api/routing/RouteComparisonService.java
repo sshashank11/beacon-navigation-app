@@ -27,13 +27,16 @@ public class RouteComparisonService {
             RouteService routes,
             CustomModelBuilder models,
             ConditionsService conditions,
-            RouteHistoryRepository history
-    ) {
+            RouteHistoryRepository history,
+            com.beacon.api.observability.BeaconMetrics metrics) {
+        this.metrics = metrics;
         this.routes = routes;
         this.models = models;
         this.conditions = conditions;
         this.history = history;
     }
+
+    private final com.beacon.api.observability.BeaconMetrics metrics;
 
     public RouteComparisonResponse compare(RouteComparisonRequest request) {
         return compare(request, (UUID) null);
@@ -44,7 +47,9 @@ public class RouteComparisonService {
      * is one. An anonymous request still routes; it just leaves no history.
      */
     public RouteComparisonResponse compare(RouteComparisonRequest request, UUID userId) {
-        return compare(request, true, userId);
+        // Timed here rather than at the controller so the measurement covers
+        // the three routing passes and excludes request parsing.
+        return metrics.timeRouting(() -> compare(request, true, userId));
     }
 
     public RouteComparisonResponse preview(RouteComparisonRequest request) {

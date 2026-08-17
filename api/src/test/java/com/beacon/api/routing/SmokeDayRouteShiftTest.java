@@ -94,7 +94,7 @@ class SmokeDayRouteShiftTest {
                 1.0);
         HazardFieldService fields = mock(HazardFieldService.class);
         when(fields.currentAreas()).thenReturn(day.areas());
-        var model = new CustomModelBuilder(new LiveHazardModelEnricher(fields))
+        var model = new CustomModelBuilder(new LiveHazardModelEnricher(fields, new com.beacon.api.observability.BeaconMetrics(new io.micrometer.core.instrument.simple.SimpleMeterRegistry())))
                 .build(profile, 2.0, new SeasonalGates(false, false, Set.of()));
         GHRequest request = new GHRequest(40.7500, -73.9900, 40.7501, -73.9860)
                 .setProfile("foot")

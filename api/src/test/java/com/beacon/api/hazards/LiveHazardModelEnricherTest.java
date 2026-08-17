@@ -20,7 +20,7 @@ class LiveHazardModelEnricherTest {
         JsonFeature pollen = feature("pollen_tree_high", "pollen_tree", 3);
         when(fields.currentAreas()).thenReturn(List.of(pm25, pollen));
 
-        CustomModel model = new LiveHazardModelEnricher(fields)
+        CustomModel model = new LiveHazardModelEnricher(fields, new com.beacon.api.observability.BeaconMetrics(new io.micrometer.core.instrument.simple.SimpleMeterRegistry()))
                 .attach(new CustomModel(), Map.of("pm25", 3.0, "pollen_tree", 0.0), 1.0);
 
         assertThat(model.getAreas().getFeatures()).containsExactly(pm25);
@@ -35,7 +35,7 @@ class LiveHazardModelEnricherTest {
         HazardFieldService fields = mock(HazardFieldService.class);
         JsonFeature construction = feature("construction_active", "construction", 3);
         when(fields.currentAreas()).thenReturn(List.of(construction));
-        LiveHazardModelEnricher enricher = new LiveHazardModelEnricher(fields);
+        LiveHazardModelEnricher enricher = new LiveHazardModelEnricher(fields, new com.beacon.api.observability.BeaconMetrics(new io.micrometer.core.instrument.simple.SimpleMeterRegistry()));
         CustomModel model = enricher.attach(
                 new CustomModel(),
                 Map.of("construction", 3.0),

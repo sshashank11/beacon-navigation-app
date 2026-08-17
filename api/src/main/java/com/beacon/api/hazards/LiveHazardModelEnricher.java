@@ -15,9 +15,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class LiveHazardModelEnricher {
 
+    private final com.beacon.api.observability.BeaconMetrics metrics;
+
     private final HazardFieldService hazardFields;
 
-    public LiveHazardModelEnricher(HazardFieldService hazardFields) {
+    public LiveHazardModelEnricher(HazardFieldService hazardFields,
+            com.beacon.api.observability.BeaconMetrics metrics) {
+        this.metrics = metrics;
         this.hazardFields = hazardFields;
     }
 
@@ -29,6 +33,9 @@ public class LiveHazardModelEnricher {
         List<JsonFeature> enabledAreas = hazardFields.currentAreas().stream()
                 .filter(area -> hazardWeights.getOrDefault(hazard(area), 0.0) > 0.0)
                 .toList();
+        // Every polygon is a point-in-polygon test per edge, so how close this
+        // runs to the configured cap is worth watching.
+        metrics.recordHazardPolygons(enabledAreas.size());
         addAreas(model, enabledAreas);
         for (JsonFeature area : enabledAreas) {
             double weight = hazardWeights.get(hazard(area));

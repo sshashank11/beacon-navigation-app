@@ -37,7 +37,13 @@ public class AnalysisQueue {
             return;
         }
         try {
-            redis.opsForList().rightPushAll(QUEUE_KEY, mapillaryIds);
+            // The request id travels with the payload so the worker's logs can
+            // be joined to the request that queued the work.
+            String requestId = com.beacon.api.observability.RequestIdFilter.current();
+            List<String> payload = mapillaryIds.stream()
+                    .map(id -> requestId + " " + id)
+                    .toList();
+            redis.opsForList().rightPushAll(QUEUE_KEY, payload);
         } catch (RuntimeException exception) {
             LOGGER.warn(
                     "Could not enqueue {} image(s) for scoring; "

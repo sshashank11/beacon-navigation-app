@@ -58,7 +58,7 @@ class ProfilePresetRouteDivergenceTest {
         try {
             HazardFieldService fields = mock(HazardFieldService.class);
             when(fields.currentAreas()).thenReturn(List.of());
-            CustomModelBuilder models = new CustomModelBuilder(new LiveHazardModelEnricher(fields));
+            CustomModelBuilder models = new CustomModelBuilder(new LiveHazardModelEnricher(fields, new com.beacon.api.observability.BeaconMetrics(new io.micrometer.core.instrument.simple.SimpleMeterRegistry())));
             SeasonalGates pollenSeason = new SeasonalGates(
                     false,
                     true,

@@ -93,7 +93,10 @@ public class RoutingConfig {
      * since it knows when in-flight requests have drained.
      */
     @Bean(destroyMethod = "close")
-    public GraphHolder graphHolder(GraphHopper graphHopper) {
+    public GraphHolder graphHolder(
+            GraphHopper graphHopper,
+            com.beacon.api.observability.BeaconMetrics metrics) {
+        metrics.recordGraphEdges(graphHopper.getBaseGraph().getEdges());
         return new GraphHolder(graphHopper);
     }
 

@@ -81,7 +81,7 @@ public class RouteAnalysisRepository {
         return jdbcTemplate.query(
                 FRAME_QUERY,
                 (resultSet, rowNumber) -> {
-                    Double skyViewFactor = (Double) resultSet.getObject("sky_view_factor");
+                    Double skyViewFactor = nullableDouble(resultSet, "sky_view_factor");
                     return new AnalysisFrame(
                             resultSet.getInt("seq"),
                             resultSet.getDouble("distance_offset_m"),
@@ -93,13 +93,32 @@ public class RouteAnalysisRepository {
                             resultSet.getDouble("image_distance_m"),
                             skyViewFactor != null,
                             skyViewFactor,
-                            (Double) resultSet.getObject("vegetation_frac"),
-                            (Double) resultSet.getObject("sidewalk_frac"),
-                            (Integer) resultSet.getObject("vehicle_count"),
-                            (Integer) resultSet.getObject("person_count"));
+                            nullableDouble(resultSet, "vegetation_frac"),
+                            nullableDouble(resultSet, "sidewalk_frac"),
+                            nullableInt(resultSet, "vehicle_count"),
+                            nullableInt(resultSet, "person_count"));
                 },
                 modelVersion,
                 analysisId);
+    }
+
+    /**
+     * Reads a nullable numeric column without assuming its JDBC type.
+     *
+     * <p>The fraction columns are Postgres REAL, which arrives as a Float, so
+     * casting straight to Double throws. Going through Number keeps the null
+     * that means "not scored yet" while tolerating either width.
+     */
+    private static Double nullableDouble(java.sql.ResultSet resultSet, String column)
+            throws java.sql.SQLException {
+        Number value = (Number) resultSet.getObject(column);
+        return value == null ? null : value.doubleValue();
+    }
+
+    private static Integer nullableInt(java.sql.ResultSet resultSet, String column)
+            throws java.sql.SQLException {
+        Number value = (Number) resultSet.getObject(column);
+        return value == null ? null : value.intValue();
     }
 
     public Optional<AnalysisSummary> find(UUID analysisId) {

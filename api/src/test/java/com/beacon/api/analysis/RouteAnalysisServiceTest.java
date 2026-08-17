@@ -12,7 +12,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.beacon.api.routing.RouteHistoryRepository;
-import com.beacon.api.routing.RouteNotFoundException;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,7 +51,7 @@ class RouteAnalysisServiceTest {
         when(routes.isOwnedBy(missing, userId)).thenReturn(false);
 
         assertThatThrownBy(() -> service.request(missing, userId))
-                .isInstanceOf(RouteNotFoundException.class);
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         verify(sampler, never()).sample(any());
     }
 
@@ -117,7 +116,7 @@ class RouteAnalysisServiceTest {
         // Telling a stranger the route exists but is not theirs is itself a
         // disclosure, so the answer is the same as for a route that is absent.
         assertThatThrownBy(() -> service.request(routeId, stranger))
-                .isInstanceOf(RouteNotFoundException.class);
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         verify(sampler, never()).sample(any());
         verify(analyses, never()).create(any(), any(), any(), anyInt(), anyString());
     }

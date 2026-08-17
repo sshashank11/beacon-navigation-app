@@ -1,10 +1,11 @@
 package com.beacon.api.analysis;
 
 import com.beacon.api.routing.RouteHistoryRepository;
-import com.beacon.api.routing.RouteNotFoundException;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -38,9 +39,11 @@ public class RouteAnalysisService {
      */
     public AnalysisAccepted request(UUID routeId, UUID userId) {
         // Not found rather than forbidden: confirming that a route exists but
-        // belongs to somebody else leaks more than it helps.
+        // belongs to somebody else leaks more than it helps. RouteNotFound
+        // means "no route could be computed" and answers 422, which is a
+        // different thing, so this matches how feedback reports the same case.
         if (!routes.isOwnedBy(routeId, userId)) {
-            throw new RouteNotFoundException("Unknown route " + routeId);
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Route was not found");
         }
 
         UUID analysisId = UUID.randomUUID();

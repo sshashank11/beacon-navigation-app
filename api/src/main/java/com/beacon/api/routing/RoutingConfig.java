@@ -85,6 +85,41 @@ public class RoutingConfig {
         }
     }
 
+    /**
+     * The live graph, replaceable without downtime.
+     *
+     * <p>Exposed separately from the GraphHopper bean so a rebuild can publish
+     * a new instance behind the same reference. Closing is the holder's job,
+     * since it knows when in-flight requests have drained.
+     */
+    @Bean(destroyMethod = "close")
+    public GraphHolder graphHolder(GraphHopper graphHopper) {
+        return new GraphHolder(graphHopper);
+    }
+
+    /** Imports a fresh graph into a new directory for a blue-green swap. */
+    public GraphHopper buildReplacement(
+            RoutingProperties properties,
+            SegmentScoreIndex scores,
+            Path graphDirectory) {
+        Path osmPath = requireOsmFile(properties.osmPath());
+        GraphHopper hopper = new GraphHopper()
+                .setOSMFile(osmPath.toString())
+                .setGraphHopperLocation(graphDirectory.toString())
+                .setEncodedValuesString(ENCODED_VALUES)
+                .setImportRegistry(new ClearwayImportRegistry(scores))
+                .setProfiles(profiles());
+        LOGGER.info("Building replacement graph at {}", graphDirectory);
+        try {
+            hopper.importOrLoad();
+            verifyStaticScores(hopper, scores.size());
+            return hopper;
+        } catch (RuntimeException exception) {
+            hopper.close();
+            throw exception;
+        }
+    }
+
     private static long verifyStaticScores(GraphHopper hopper, int indexedWayCount) {
         List<IntEncodedValue> encodedValues = List.of(StaticScore.values()).stream()
                 .map(score -> hopper.getEncodingManager()

@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { LogOut, UserRound } from 'lucide-react'
+import { LogOut, Trash2, UserRound } from 'lucide-react'
 import {
   currentAccount,
+  deleteAccount,
   register,
   signIn,
   signOut,
@@ -24,8 +25,22 @@ export function AccountPanel() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   useEffect(() => subscribeToAccount(setAccount), [])
+
+  async function remove() {
+    setBusy(true)
+    setError(null)
+    try {
+      await deleteAccount()
+      setConfirmingDelete(false)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not delete the account')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -48,19 +63,60 @@ export function AccountPanel() {
 
   if (account) {
     return (
-      <div className="flex items-center gap-2 text-xs text-[#526159]">
-        <UserRound className="size-4" aria-hidden />
-        <span className="truncate" title={account.email}>
-          {account.email}
-        </span>
-        <button
-          type="button"
-          onClick={signOut}
-          className="ml-auto flex items-center gap-1 border border-[#d4dcd7] bg-white px-2 py-1 text-[#25543c] transition-colors hover:bg-[#eef3f0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447]"
-        >
-          <LogOut className="size-3.5" aria-hidden />
-          Sign out
-        </button>
+      <div className="space-y-1.5 text-xs text-[#526159]">
+        <div className="flex items-center gap-2">
+          <UserRound className="size-4" aria-hidden />
+          <span className="truncate" title={account.email}>
+            {account.email}
+          </span>
+          <button
+            type="button"
+            onClick={signOut}
+            className="ml-auto flex items-center gap-1 border border-[#d4dcd7] bg-white px-2 py-1 text-[#25543c] transition-colors hover:bg-[#eef3f0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#168447]"
+          >
+            <LogOut className="size-3.5" aria-hidden />
+            Sign out
+          </button>
+        </div>
+        {confirmingDelete ? (
+          <div className="border border-[#e8c4bc] bg-[#fff8f6] px-2 py-1.5">
+            <p className="text-[11px] text-[#8d382d]">
+              Delete this account and every route and note saved with it? This
+              cannot be undone.
+            </p>
+            <div className="mt-1.5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => void remove()}
+                disabled={busy}
+                className="flex items-center gap-1 bg-[#b84d3e] px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-[#a04234] disabled:opacity-50"
+              >
+                <Trash2 className="size-3" aria-hidden />
+                {busy ? 'Deleting…' : 'Delete everything'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(false)}
+                className="border border-[#d4dcd7] bg-white px-2 py-1 text-[11px] text-[#526159]"
+              >
+                Keep it
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmingDelete(true)}
+            className="text-[11px] text-[#8d382d] underline decoration-dotted transition-colors hover:text-[#6f2b21]"
+          >
+            Delete my account and data
+          </button>
+        )}
+        {error && (
+          <p className="text-[11px] text-[#8d382d]" role="alert">
+            {error}
+          </p>
+        )}
       </div>
     )
   }

@@ -62,6 +62,24 @@ export async function signIn(email: string, password: string): Promise<Account> 
   return signedIn
 }
 
+/**
+ * Deletes the account and everything derived from it.
+ *
+ * <p>Self-reported sensitivities are health-adjacent, and the person they
+ * belong to should be able to remove their trace without asking anyone.
+ * Routes and their feedback cascade from the account row.
+ */
+export async function deleteAccount(): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/api/v1/auth/me`, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json', ...authHeaders() },
+  })
+  if (!response.ok) {
+    throw new Error(`Deleting the account failed with status ${response.status}`)
+  }
+  signOut()
+}
+
 export async function register(email: string, password: string): Promise<Account> {
   const response = await fetch(`${apiBaseUrl}/api/v1/auth/register`, {
     method: 'POST',

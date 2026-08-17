@@ -17,12 +17,14 @@ class AnalysisStreamerTest {
 
     private static AnalysisFrame scored(int seq) {
         return new AnalysisFrame(
-                seq, seq * 50.0, "img-" + seq, "https://img/" + seq, 90.0, 3.0,
+                seq, seq * 50.0, "img-" + seq, "https://img/" + seq,
+                -73.99, 40.74, 90.0, 3.0,
                 true, 0.2, 0.1, 0.05, 2, 1);
     }
 
     private static AnalysisFrame pending(int seq) {
-        return AnalysisFrame.unscored(seq, seq * 50.0, "img-" + seq, "u", 90.0, 3.0);
+        return AnalysisFrame.unscored(
+                seq, seq * 50.0, "img-" + seq, "u", -73.99, 40.74, 90.0, 3.0);
     }
 
     private AnalysisStreamer streamer(RouteAnalysisService service, List<Long> slept) {

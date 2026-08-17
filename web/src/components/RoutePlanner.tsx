@@ -34,11 +34,15 @@ import {
   type RouteVariant,
 } from '../api/routes'
 import { useProfileStore } from '../store/profileStore'
+import { AccountPanel } from './AccountPanel'
+import { AnalysisFilmstrip } from './AnalysisFilmstrip'
+import type { AnalysisFrame } from '../api/analysis'
 
 const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 const NEW_YORK_CENTER: [number, number] = [-73.9654, 40.7006]
 const POINTS_SOURCE_ID = 'route-points'
 const ROUTE_SOURCE_ID = 'route-line'
+const FRAME_SOURCE_ID = 'analysis-frame'
 const HAZARD_SOURCE_ID = 'hazard-tiles'
 const HAZARD_LAYER_ID = 'hazard-score-lines'
 
@@ -118,6 +122,29 @@ export function RoutePlanner() {
     map.getContainer().addEventListener('click', handleMapClick, { capture: true })
     map.on('load', () => {
       map.resize()
+      map.addSource(FRAME_SOURCE_ID, { type: 'geojson', data: emptyFeatureCollection })
+      map.addLayer({
+        id: `${FRAME_SOURCE_ID}-halo`,
+        type: 'circle',
+        source: FRAME_SOURCE_ID,
+        paint: {
+          'circle-radius': 13,
+          'circle-color': '#168447',
+          'circle-opacity': 0.22,
+        },
+      })
+      map.addLayer({
+        id: `${FRAME_SOURCE_ID}-dot`,
+        type: 'circle',
+        source: FRAME_SOURCE_ID,
+        paint: {
+          'circle-radius': 6,
+          'circle-color': '#168447',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+        },
+      })
+
       map.addSource(POINTS_SOURCE_ID, { type: 'geojson', data: emptyFeatureCollection })
       map.addLayer({
         id: 'route-points-halo',
@@ -261,6 +288,29 @@ export function RoutePlanner() {
     routeMutation.reset()
   }
 
+  const focusAnalysisFrame = useCallback((frame: AnalysisFrame | null) => {
+    const map = mapRef.current
+    const source = map?.getSource(FRAME_SOURCE_ID) as GeoJSONSource | undefined
+    if (!map || !source) return
+
+    if (!frame) {
+      source.setData(emptyFeatureCollection)
+      return
+    }
+
+    source.setData({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'Point', coordinates: [frame.longitude, frame.latitude] },
+        },
+      ],
+    })
+    map.easeTo({ center: [frame.longitude, frame.latitude], duration: 500 })
+  }, [])
+
   function clearRoute() {
     setPoints({ origin: null, destination: null })
     selectActivePoint('origin')
@@ -268,6 +318,7 @@ export function RoutePlanner() {
     routeMutation.reset()
     const source = mapRef.current?.getSource(ROUTE_SOURCE_ID) as GeoJSONSource | undefined
     source?.setData(emptyFeatureCollection)
+    focusAnalysisFrame(null)
   }
 
   const readyToRoute = points.origin && points.destination
@@ -275,6 +326,9 @@ export function RoutePlanner() {
   return (
     <main className="route-workspace flex min-h-0 flex-1 bg-[#edf1ef]">
       <aside className="route-panel z-10 flex shrink-0 flex-col border-r border-[#d4dcd7] bg-[#fbfcfb]">
+        <div className="border-b border-[#e1e6e3] px-5 py-3">
+          <AccountPanel />
+        </div>
         <div className="flex items-center justify-between border-b border-[#e1e6e3] px-5 py-4">
           <div>
             <p className="text-xs font-semibold uppercase text-[#6a776f]">Route planner</p>
@@ -335,6 +389,14 @@ export function RoutePlanner() {
               comparison={routeMutation.data}
               selected={selectedVariant}
               onSelect={setSelectedVariant}
+            />
+          )}
+          {routeMutation.data && (
+            <AnalysisFilmstrip
+              key={routeMutation.data[selectedVariant].id}
+              routeId={routeMutation.data[selectedVariant].id}
+              routeDistanceM={routeMutation.data[selectedVariant].route.distance_m}
+              onFrameFocus={focusAnalysisFrame}
             />
           )}
           {routeMutation.isError && (

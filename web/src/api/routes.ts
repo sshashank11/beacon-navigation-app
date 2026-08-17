@@ -1,3 +1,5 @@
+import { authHeaders } from './auth'
+
 export type RouteMode = 'foot' | 'bike'
 export type RouteVariant = 'fastest' | 'balanced' | 'cleanest'
 export type LegacyRouteVariant = Exclude<RouteVariant, 'balanced'>
@@ -99,6 +101,7 @@ export async function createRouteComparison(
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
+      ...authHeaders(),
     },
     body: JSON.stringify(request),
   })
@@ -111,6 +114,10 @@ export async function createRouteComparison(
   return response.json() as Promise<RouteComparison>
 }
 
+/**
+ * Feedback belongs to the route's owner, so this needs credentials. Without
+ * them the API answers 404 rather than confirming the route exists.
+ */
 export async function submitRouteFeedback(
   routeId: string,
   request: RouteFeedbackRequest,
@@ -120,6 +127,7 @@ export async function submitRouteFeedback(
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
+      ...authHeaders(),
     },
     body: JSON.stringify(request),
   })

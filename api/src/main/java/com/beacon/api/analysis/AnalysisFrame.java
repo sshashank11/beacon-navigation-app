@@ -12,6 +12,8 @@ public record AnalysisFrame(
         double distanceOffsetM,
         String mapillaryId,
         String thumbUrl,
+        double longitude,
+        double latitude,
         double routeBearingDeg,
         double imageDistanceM,
         boolean scored,
@@ -26,6 +28,8 @@ public record AnalysisFrame(
             double distanceOffsetM,
             String mapillaryId,
             String thumbUrl,
+            double longitude,
+            double latitude,
             double routeBearingDeg,
             double imageDistanceM) {
         return new AnalysisFrame(
@@ -33,6 +37,8 @@ public record AnalysisFrame(
                 distanceOffsetM,
                 mapillaryId,
                 thumbUrl,
+                longitude,
+                latitude,
                 routeBearingDeg,
                 imageDistanceM,
                 false,

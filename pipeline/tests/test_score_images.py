@@ -214,6 +214,51 @@ class StreamingScoreRunTest(unittest.TestCase):
         self.assertEqual(persisted, [4, 4, 2])
         self.assertEqual(segmenter.batch_sizes, [4, 4, 2])
 
+    def test_an_unreachable_image_is_skipped_not_fatal(self) -> None:
+        """A dead thumbnail must not block every future run at the same frame."""
+        references = [
+            ImageReference(str(index), f"https://images.example/{index}.jpg")
+            for index in range(3)
+        ]
+
+        def handle(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("1.jpg"):
+                return httpx.Response(404)
+            buffer = BytesIO()
+            Image.new("RGB", (8, 6)).save(buffer, format="PNG")
+            return httpx.Response(200, content=buffer.getvalue())
+
+        segmenter = FakeSegmenter([np.zeros((6, 8), dtype=np.int64)] * 3)
+        persisted: list[int] = []
+
+        with (
+            mock.patch.object(
+                score_images_module, "load_unscored_images", return_value=references
+            ),
+            mock.patch.object(
+                score_images_module, "count_unscored_images", return_value=1
+            ),
+            mock.patch.object(
+                score_images_module,
+                "persist_frame_metrics",
+                side_effect=lambda url, metrics, version: (
+                    persisted.append(len(metrics)) or len(metrics)
+                ),
+            ),
+            httpx.Client(transport=httpx.MockTransport(handle)) as client,
+        ):
+            result = score_images_module.score_unscored_images(
+                "postgresql://unused",
+                batch_size=8,
+                segmenter=segmenter,
+                client=client,
+            )
+
+        self.assertEqual(result.scored_count, 2, "the two reachable images scored")
+        self.assertEqual(len(result.skipped), 1)
+        self.assertEqual(result.skipped[0][0], "1")
+        self.assertEqual(persisted, [2])
+
     def test_no_pending_images_does_no_work(self) -> None:
         with mock.patch.object(
             score_images_module, "load_unscored_images", return_value=[]

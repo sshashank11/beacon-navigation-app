@@ -60,6 +60,7 @@ class ScoreImagesResult:
     model_version: str
     model_id: str
     device: str
+    skipped: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -211,13 +212,23 @@ def score_unscored_images(
         headers={"User-Agent": "BeaconNavigationApp/0.1"},
     )
     scored = 0
+    skipped: list[tuple[str, str]] = []
     try:
         for offset in range(0, len(references), batch_size):
             chunk = references[offset : offset + batch_size]
-            samples = [
-                (reference, download_image(image_client, reference.thumb_url))
-                for reference in chunk
-            ]
+            samples = []
+            for reference in chunk:
+                try:
+                    samples.append(
+                        (reference, download_image(image_client, reference.thumb_url))
+                    )
+                except (httpx.HTTPError, OSError) as exception:
+                    # One unreachable thumbnail must not end the run. Without
+                    # this, a permanently dead URL would abort at the same
+                    # image on every restart and the job could never finish.
+                    skipped.append((reference.mapillary_id, str(exception)))
+            if not samples:
+                continue
             metrics = score_frames(samples, active_segmenter, batch_size=batch_size)
             scored += persist_frame_metrics(database_url, metrics, model_version)
             if progress is not None:
@@ -232,6 +243,7 @@ def score_unscored_images(
         model_version=model_version,
         model_id=active_segmenter.model_id,
         device=active_segmenter.device,
+        skipped=tuple(skipped),
     )
 
 

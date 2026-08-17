@@ -205,6 +205,10 @@ def main() -> None:
             f"{scored.scored_count:,} image(s) as {scored.model_version} "
             f"({scored.pending_count:,} still pending)"
         )
+        if scored.skipped:
+            print(f"score-images: skipped {len(scored.skipped):,} unreachable image(s)")
+            for mapillary_id, reason in scored.skipped[:5]:
+                print(f"  {mapillary_id}: {reason}")
         return
     if args.job == "refresh-image-segment-features":
         from beacon_pipeline.vision.segment_features import (

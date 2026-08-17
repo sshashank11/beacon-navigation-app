@@ -72,6 +72,56 @@ class GetWithRetryTest(unittest.TestCase):
 
         self.assertEqual(slept, [30.0])
 
+    def test_retries_a_dropped_connection(self) -> None:
+        """A multi-hour harvest will meet a mid-flight disconnect."""
+        calls: list[int] = []
+
+        def handle(request: httpx.Request) -> httpx.Response:
+            calls.append(1)
+            if len(calls) < 3:
+                raise httpx.RemoteProtocolError(
+                    "Server disconnected without sending a response.",
+                    request=request,
+                )
+            return httpx.Response(200)
+
+        slept: list[float] = []
+        with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+            response = get_with_retry(
+                client, "https://api.example/x", sleep=slept.append
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(slept, [1.0, 2.0])
+
+    def test_a_persistent_connection_failure_still_raises(self) -> None:
+        def handle(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("no route to host", request=request)
+
+        with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+            with self.assertRaises(httpx.ConnectError):
+                get_with_retry(
+                    client, "https://api.example/x", attempts=2, sleep=lambda _: None
+                )
+
+    def test_a_timeout_is_retried_like_any_transport_error(self) -> None:
+        calls: list[int] = []
+
+        def handle(request: httpx.Request) -> httpx.Response:
+            calls.append(1)
+            if len(calls) == 1:
+                raise httpx.ReadTimeout("timed out", request=request)
+            return httpx.Response(200)
+
+        with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+            response = get_with_retry(
+                client, "https://api.example/x", sleep=lambda _: None
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(calls), 2)
+
     def test_rejects_a_non_positive_attempt_count(self) -> None:
         client, _ = self._client([200])
         with client, self.assertRaisesRegex(ValueError, "at least one"):

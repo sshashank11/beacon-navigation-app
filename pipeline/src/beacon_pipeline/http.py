@@ -51,12 +51,28 @@ def get_with_retry(
     if attempts < 1:
         raise ValueError("attempts must be at least one")
 
-    response = client.get(url, params=params, headers=headers)
-    for attempt in range(attempts - 1):
+    response: httpx.Response | None = None
+    for attempt in range(attempts):
+        final_attempt = attempt == attempts - 1
+        try:
+            response = client.get(url, params=params, headers=headers)
+        except httpx.TransportError:
+            # The connection dropped before any status arrived. A job pulling
+            # thousands of thumbnails will meet this eventually, and it says
+            # nothing about the next request, so retry rather than die.
+            if final_attempt:
+                raise
+            sleep(min(float(2**attempt), max_delay))
+            continue
+
         if response.status_code != 429 and response.status_code < 500:
             break
+        if final_attempt:
+            break
         sleep(min(retry_delay(response, attempt), max_delay))
-        response = client.get(url, params=params, headers=headers)
+
+    if response is None:
+        raise RuntimeError("retry loop produced no response")
 
     if cooldown:
         pause = cooldown_seconds(response)

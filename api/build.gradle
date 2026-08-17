@@ -30,6 +30,14 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.flywaydb:flyway-database-postgresql'
+	// Fish Audio speaks MessagePack over an authenticated WebSocket, and has
+	// no Java SDK, so the transport is assembled here.
+	implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+	implementation 'org.msgpack:jackson-dataformat-msgpack:0.9.8'
+	// Synthesised speech is cached as objects rather than rows.
+	implementation 'io.minio:minio:8.5.17'
+	// Route and analysis endpoints can be made to spend real money.
+	implementation 'com.bucket4j:bucket4j_jdk17-core:8.14.0'
 	runtimeOnly 'org.postgresql:postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'

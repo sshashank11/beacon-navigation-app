@@ -33,3 +33,17 @@ beacon:
     enabled: ${BEACON_ROUTING_ENABLED:true}
     osm-path: ${BEACON_OSM_PATH:../data/osm/nyc.osm.pbf}
     graph-path: ${BEACON_GRAPH_PATH:../graph-cache}
+
+  storage:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:beacon}
+    secret-key: ${MINIO_SECRET_KEY:beacon-password}
+  tts:
+    provider: ${BEACON_TTS_PROVIDER:auto}
+    fish-api-key: ${FISH_AUDIO_KEY:}
+    fish-reference-id: ${FISH_AUDIO_REFERENCE_ID:}
+    fish-model: ${FISH_AUDIO_MODEL:speech-1.6}
+    piper-binary: ${PIPER_BINARY:}
+    piper-voice: ${PIPER_VOICE:}
+    speed: ${BEACON_TTS_SPEED:1.0}
+    bucket: ${MINIO_BUCKET:beacon}

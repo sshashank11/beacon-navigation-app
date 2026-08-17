@@ -36,6 +36,7 @@ import {
 import { useProfileStore } from '../store/profileStore'
 import { AccountPanel } from './AccountPanel'
 import { AnalysisFilmstrip } from './AnalysisFilmstrip'
+import { RouteAudioGuide } from './RouteAudioGuide'
 import type { AnalysisFrame } from '../api/analysis'
 
 const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
@@ -397,6 +398,13 @@ export function RoutePlanner() {
               routeId={routeMutation.data[selectedVariant].id}
               routeDistanceM={routeMutation.data[selectedVariant].route.distance_m}
               onFrameFocus={focusAnalysisFrame}
+            />
+          )}
+          {routeMutation.data && (
+            <RouteAudioGuide
+              key={`audio-${routeMutation.data[selectedVariant].id}`}
+              routeId={routeMutation.data[selectedVariant].id}
+              coordinates={routeMutation.data[selectedVariant].route.geometry.coordinates}
             />
           )}
           {routeMutation.isError && (

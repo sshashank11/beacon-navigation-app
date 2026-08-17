@@ -76,6 +76,31 @@ public class RouteHistoryRepository {
         return Boolean.TRUE.equals(owned);
     }
 
+    /** Distance and exposure for a saved route, for composing its audio. */
+    public java.util.Optional<RouteAudioSource> audioSource(UUID routeId) {
+        return jdbcTemplate.query(
+                "SELECT distance_m, exposure_breakdown::text AS exposure FROM route WHERE id = ?",
+                (resultSet, rowNumber) -> new RouteAudioSource(
+                        resultSet.getDouble("distance_m"),
+                        readExposure(resultSet.getString("exposure"))),
+                routeId).stream().findFirst();
+    }
+
+    private static Map<String, Double> readExposure(String json) {
+        try {
+            return OBJECT_MAPPER.readValue(
+                    json,
+                    OBJECT_MAPPER.getTypeFactory().constructMapType(
+                            java.util.LinkedHashMap.class, String.class, Double.class));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+            throw new IllegalStateException("Stored exposure breakdown is unreadable", exception);
+        }
+    }
+
+    /** What the audio composer needs from a stored route. */
+    public record RouteAudioSource(double distanceM, Map<String, Double> exposureBreakdown) {
+    }
+
     private String json(Object value) {
         try {
             return OBJECT_MAPPER.writeValueAsString(value);

@@ -26,6 +26,11 @@ public class CustomModelBuilder {
             new ExposureBand(50, 0.67),
             new ExposureBand(25, 0.33));
     private static final Map<Hazard, StaticScore> STATIC_SCORES = staticScores();
+    /**
+     * A canyon amplifies particulate exposure; it is not a hazard in itself,
+     * so it carries less weight than the measured pollution score.
+     */
+    private static final double CANYON_SENSITIVITY = 0.5;
 
     private final LiveHazardModelEnricher liveHazards;
 
@@ -49,22 +54,23 @@ public class CustomModelBuilder {
             if (score != null) {
                 addExposureRules(
                         model,
-                        score.encodedValueName(),
+                        score,
                         entry.getValue() * profile.getConservatism(),
                         false);
             }
         }
+        addStreetCanyonRules(model, profile, effectiveWeights);
         if (effectiveWeights.getOrDefault(Hazard.POLLEN_TREE, 0.0) > 0.0) {
             addExposureRules(
                     model,
-                    StaticScore.POLLEN.encodedValueName(),
+                    StaticScore.POLLEN,
                     effectiveWeights.get(Hazard.POLLEN_TREE) * profile.getConservatism(),
                     false);
         }
         if (effectiveWeights.getOrDefault(Hazard.SHADE_DEFICIT, 0.0) > 0.0) {
             addExposureRules(
                     model,
-                    StaticScore.SHADE.encodedValueName(),
+                    StaticScore.SHADE,
                     effectiveWeights.get(Hazard.SHADE_DEFICIT) * profile.getConservatism(),
                     true);
         }
@@ -129,16 +135,21 @@ public class CustomModelBuilder {
 
     private static void addExposureRules(
             CustomModel model,
-            String encodedValue,
+            StaticScore score,
             double sensitivity,
             boolean inverse
     ) {
+        String encodedValue = score.encodedValueName();
         List<com.graphhopper.json.Statement> statements = new ArrayList<>();
         for (int index = 0; index < EXPOSURE_BANDS.size(); index++) {
             ExposureBand band = EXPOSURE_BANDS.get(index);
             String operator = inverse ? " < " : " > ";
             int threshold = inverse ? 100 - band.threshold() : band.threshold();
             String condition = encodedValue + operator + threshold;
+            if (score.optional()) {
+                // Never let an unmeasured segment match an exposure band.
+                condition = score.presentCondition() + " && " + condition;
+            }
             String multiplier = String.format(
                     Locale.ROOT,
                     "%.4f",
@@ -148,6 +159,31 @@ public class CustomModelBuilder {
                     : ElseIf(condition, MULTIPLY, multiplier));
         }
         statements.forEach(model::addToPriority);
+    }
+
+    /**
+     * Penalises street canyons for users who care about particulates.
+     *
+     * <p>A low sky view factor means the street is walled in, and walled-in
+     * streets hold exhaust near the pavement instead of letting it disperse.
+     * The blueprint treats this as a modifier on particulate exposure rather
+     * than a hazard of its own, so it only applies when the profile actually
+     * weights PM2.5, scaled by that weight.
+     */
+    private void addStreetCanyonRules(
+            CustomModel model,
+            TriggerProfile profile,
+            Map<Hazard, Double> effectiveWeights
+    ) {
+        double particulateWeight = effectiveWeights.getOrDefault(Hazard.PM25, 0.0);
+        if (particulateWeight <= 0.0) {
+            return;
+        }
+        addExposureRules(
+                model,
+                StaticScore.SKY_VIEW,
+                particulateWeight * CANYON_SENSITIVITY * profile.getConservatism(),
+                true);
     }
 
     private static String gradeCondition(double threshold) {
@@ -163,6 +199,7 @@ public class CustomModelBuilder {
         scores.put(Hazard.TRAFFIC_PROX, StaticScore.TRAFFIC);
         scores.put(Hazard.INDUSTRIAL_PROX, StaticScore.INDUSTRIAL);
         scores.put(Hazard.GRADE, StaticScore.GRADE);
+        scores.put(Hazard.CROWD_DENSITY, StaticScore.CROWD);
         return Map.copyOf(scores);
     }
 

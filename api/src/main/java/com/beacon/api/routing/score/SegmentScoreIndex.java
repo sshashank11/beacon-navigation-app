@@ -43,7 +43,7 @@ public final class SegmentScoreIndex {
         int second = 0;
         int third = 0;
         for (int index = 0; index < scores.length; index++) {
-            int quantized = quantize(scores[index]);
+            int quantized = quantize(scores[index], StaticScore.values()[index]);
             if (index < FIRST_PACK_SIZE) {
                 first |= quantized << (index * BITS_PER_SCORE);
             } else if (index < FIRST_PACK_SIZE + SECOND_PACK_SIZE) {
@@ -74,11 +74,26 @@ public final class SegmentScoreIndex {
         return firstPack.size();
     }
 
+    /** Packs a mandatory score, clamped to the 0-100 percentile range. */
     static int quantize(double score) {
+        return quantize(score, null);
+    }
+
+    /**
+     * Packs a score into 7 bits.
+     *
+     * <p>Only optional scores may exceed 100, and only to carry {@link
+     * StaticScore#NO_DATA}. Mandatory scores keep the 0-100 clamp as a guard
+     * against a bad value reaching the graph.
+     */
+    static int quantize(double score, StaticScore field) {
         if (!Double.isFinite(score)) {
             return 0;
         }
-        return (int) Math.round(Math.clamp(score, 0.0, 100.0));
+        double ceiling = field != null && field.optional()
+                ? StaticScore.NO_DATA
+                : 100.0;
+        return (int) Math.round(Math.clamp(score, 0.0, ceiling));
     }
 
     private static int unpack(int packed, int index) {

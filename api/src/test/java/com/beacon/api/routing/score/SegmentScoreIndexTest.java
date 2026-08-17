@@ -28,6 +28,27 @@ class SegmentScoreIndexTest {
     }
 
     @Test
+    void theNoDataSentinelSurvivesPacking() {
+        SegmentScoreIndex index = new SegmentScoreIndex(1);
+
+        index.put(7L, 10, 10, 10, 10, 10, 10, 10, 5, 0,
+                StaticScore.NO_DATA, StaticScore.NO_DATA);
+
+        // A segment with no imagery must not read as the lowest percentile.
+        assertThat(index.get(7L, StaticScore.SKY_VIEW)).isEqualTo(StaticScore.NO_DATA);
+        assertThat(index.get(7L, StaticScore.CROWD)).isEqualTo(StaticScore.NO_DATA);
+        assertThat(StaticScore.NO_DATA).isGreaterThan(100);
+    }
+
+    @Test
+    void onlyImageryScoresAreOptional() {
+        assertThat(StaticScore.SKY_VIEW.optional()).isTrue();
+        assertThat(StaticScore.CROWD.optional()).isTrue();
+        assertThat(StaticScore.PM25.optional()).isFalse();
+        assertThat(StaticScore.GRADE.optional()).isFalse();
+    }
+
+    @Test
     void nonFiniteAndNegativeScoresBecomeZero() {
         assertThat(SegmentScoreIndex.quantize(Double.NaN)).isZero();
         assertThat(SegmentScoreIndex.quantize(Double.POSITIVE_INFINITY)).isZero();

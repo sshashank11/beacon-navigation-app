@@ -9,6 +9,7 @@ import com.beacon.api.hazards.Hazard;
 import com.beacon.api.hazards.HazardFieldService;
 import com.beacon.api.hazards.LiveHazardModelEnricher;
 import com.beacon.api.routing.RouteMode;
+import com.beacon.api.routing.score.StaticScore;
 import com.graphhopper.json.Statement;
 import com.graphhopper.util.CustomModel;
 import com.graphhopper.util.JsonFeature;
@@ -93,6 +94,79 @@ class CustomModelBuilderTest {
                         "clw_industrial_within_200m > 0",
                         "in_construction_active");
         assertThat(model.getAreas().getFeatures()).containsExactly(construction);
+    }
+
+    @Test
+    void everyImageryRuleExcludesSegmentsWithNoImagery() {
+        CustomModelBuilder builder = builder(List.of());
+        TriggerProfile profile = profile(
+                Map.of(Hazard.PM25, 3.0, Hazard.CROWD_DENSITY, 2.0),
+                Set.of(),
+                20.0,
+                1.0);
+
+        CustomModel model = builder.build(profile, 1.0, gates());
+
+        List<String> imageryConditions = model.getPriority().stream()
+                .map(Statement::condition)
+                .filter(condition -> condition != null
+                        && (condition.contains("clw_svf") || condition.contains("clw_crowd")))
+                .toList();
+
+        assertThat(imageryConditions).isNotEmpty();
+        // Without this guard the sentinel would match every band and the whole
+        // unphotographed city would be penalised.
+        assertThat(imageryConditions).allSatisfy(condition ->
+                assertThat(condition).contains("< " + StaticScore.NO_DATA + " &&"));
+    }
+
+    @Test
+    void crowdDensityWeightReachesTheImageryScore() {
+        CustomModelBuilder builder = builder(List.of());
+        TriggerProfile profile = profile(
+                Map.of(Hazard.CROWD_DENSITY, 3.0), Set.of(), 20.0, 1.0);
+
+        CustomModel model = builder.build(profile, 1.0, gates());
+
+        assertThat(model.getPriority()).anySatisfy(statement ->
+                assertThat(statement.condition()).contains("clw_crowd > 75"));
+    }
+
+    @Test
+    void canyonPenaltyAppliesOnlyWhenParticulatesAreWeighted() {
+        CustomModelBuilder builder = builder(List.of());
+
+        CustomModel withParticulates = builder.build(
+                profile(Map.of(Hazard.PM25, 3.0), Set.of(), 20.0, 1.0), 1.0, gates());
+        CustomModel withoutParticulates = builder.build(
+                profile(Map.of(Hazard.GRADE, 3.0), Set.of(), 20.0, 1.0), 1.0, gates());
+
+        assertThat(conditions(withParticulates)).anyMatch(c -> c.contains("clw_svf"));
+        assertThat(conditions(withoutParticulates)).noneMatch(c -> c.contains("clw_svf"));
+    }
+
+    @Test
+    void canyonRulesFireOnLowSkyViewNotHigh() {
+        CustomModelBuilder builder = builder(List.of());
+
+        CustomModel model = builder.build(
+                profile(Map.of(Hazard.PM25, 3.0), Set.of(), 20.0, 1.0), 1.0, gates());
+
+        // Low sky view is the canyon; a wide open street must not be penalised.
+        assertThat(conditions(model))
+                .filteredOn(condition -> condition.contains("clw_svf"))
+                .allSatisfy(condition -> assertThat(condition).contains("clw_svf < "));
+    }
+
+    private static SeasonalGates gates() {
+        return new SeasonalGates(false, false, Set.of());
+    }
+
+    private static List<String> conditions(CustomModel model) {
+        return model.getPriority().stream()
+                .map(Statement::condition)
+                .filter(java.util.Objects::nonNull)
+                .toList();
     }
 
     private static CustomModelBuilder builder(List<JsonFeature> areas) {

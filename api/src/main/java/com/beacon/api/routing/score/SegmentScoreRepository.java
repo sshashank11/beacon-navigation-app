@@ -39,8 +39,8 @@ public class SegmentScoreRepository {
             weightedAverage("pollen_source"),
             weightedGrade(),
             industrialWithin200m(),
-            weightedAverage("sky_view_factor"),
-            weightedAverage("crowd_prior"));
+            weightedAverageOrNoData("sky_view_factor"),
+            weightedAverageOrNoData("crowd_prior"));
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -80,6 +80,23 @@ public class SegmentScoreRepository {
                   0
                 )
                 """.formatted(column).strip();
+    }
+
+    /**
+     * Length-weighted average that reports absence instead of zero.
+     *
+     * <p>Imagery-derived scores are missing for most of the city. Coalescing
+     * them to zero would be a claim of "lowest percentile" rather than "not
+     * measured", so a way with no photographs emits the no-data sentinel.
+     */
+    private static String weightedAverageOrNoData(String column) {
+        return """
+                coalesce(
+                  sum(score.%1$s * segment.length_m)
+                    / nullif(sum(segment.length_m) filter (where score.%1$s is not null), 0),
+                  %2$d
+                )
+                """.formatted(column, StaticScore.NO_DATA).strip();
     }
 
     private static String weightedGrade() {

@@ -352,6 +352,30 @@ sends credentials.
 `VITE_*` variables are inlined into the client bundle, so never put a provider
 key in one. All provider keys belong to the API and the pipeline.
 
+### Storage is the binding constraint
+
+The local database is about 848 MB, of which roughly 330 MB is pipeline staging
+data that nothing reads at request time: the street tree census, the per-source
+sample tables, and the traffic road table. `scripts/export-runtime-data.sh`
+dumps everything except those, which brings the restore to roughly 518 MB.
+
+That still exceeds the free tier on Neon and Supabase, both 500 MB. Options, in
+order of least surprise: a paid tier on either, a Postgres app on Fly with a
+volume large enough, or trimming the segment table to a bounding box smaller
+than the five boroughs and accepting that routing works only inside it.
+
+### API container
+
+`Dockerfile` builds from the repository root, because the image bakes in
+`data/osm/nyc.osm.pbf` so the container can build its own graph without
+reaching out to Geofabrik. The graph is written to `/data/graph-cache`, which
+`fly.toml` mounts as a volume: first boot imports 1.1M edges in about 40
+seconds and later boots load the cache instead.
+
+The import needs more than 1 GB, so `fly.toml` asks for a 2 GB machine, which
+is not free. `auto_stop_machines` is off deliberately: a cold start would pay
+the graph load in front of a user's request.
+
 The Python pipeline can stay on a local machine. Precomputed scores already live
 in the database, so a deployed API routes correctly without it; only refreshes
 need the pipeline.

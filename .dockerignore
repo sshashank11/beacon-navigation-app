@@ -1,0 +1,18 @@
+# Everything the image does not need. The OSM extract is deliberately not
+# ignored, because the Dockerfile copies it in.
+.git
+.github
+node_modules
+web
+pipeline
+graph-cache
+api/build
+api/.gradle
+data/*
+!data/osm
+data/osm/*
+!data/osm/nyc.osm.pbf
+scripts
+*.md
+.env
+.env.example

@@ -1,0 +1,44 @@
+# Fly.io configuration for the Beacon API.
+#
+# Adjust app name and region, then: fly launch --no-deploy, fly volumes create,
+# fly secrets set ..., fly deploy. See the Deployment section of README.md.
+
+app = "beacon-api"
+primary_region = "ewr"   # Newark: closest to the data this app is about
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  BEACON_ROUTING_ENABLED = "true"
+  BEACON_OSM_PATH = "/opt/beacon/osm/nyc.osm.pbf"
+  BEACON_GRAPH_PATH = "/data/graph-cache"
+  # Speech falls back to the browser voice unless a provider is configured.
+  BEACON_TTS_PROVIDER = "auto"
+
+# The graph cache is rebuilt on first boot and reused afterwards.
+[[mounts]]
+  source = "beacon_graph"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # The graph must stay loaded: a cold start pays a full import or load, which
+  # is far too slow to sit in front of a request.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "180s"   # first boot imports the graph
+    method = "GET"
+    path = "/actuator/health"
+
+[[vm]]
+  # 1.1M edges will not import in 1 GB. This size is not free on Fly.
+  memory = "2gb"
+  cpu_kind = "shared"
+  cpus = 2

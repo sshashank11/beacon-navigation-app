@@ -359,10 +359,15 @@ data that nothing reads at request time: the street tree census, the per-source
 sample tables, and the traffic road table. `scripts/export-runtime-data.sh`
 dumps everything except those, which brings the restore to roughly 518 MB.
 
-That still exceeds the free tier on Neon and Supabase, both 500 MB. Options, in
-order of least surprise: a paid tier on either, a Postgres app on Fly with a
-volume large enough, or trimming the segment table to a bounding box smaller
-than the five boroughs and accepting that routing works only inside it.
+That still exceeds the free tier on Neon and Supabase, both 500 MB. Railway is
+the easier fit because its storage is usage-based rather than capped, and the
+API, Postgres, and Redis can sit in one project on a private network. Fly works
+too, with a Postgres app and a large enough volume. The remaining option is to
+trim the segment table to a bounding box smaller than the five boroughs and
+accept that routing only works inside it.
+
+Either host injects its own `PORT`, which `application.yml` reads and the
+container health check follows.
 
 ### API container
 

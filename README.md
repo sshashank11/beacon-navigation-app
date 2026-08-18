@@ -330,6 +330,32 @@ imported into a sibling directory and published atomically; the retired
 instance closes only after in-flight requests drain, and a failed import leaves
 the running graph untouched.
 
+## Deployment
+
+Vercel hosts the web app; the API needs a host that can run a JVM with roughly
+2 GB for the graph, plus PostGIS and Redis. Deploy the API first and confirm
+`/actuator/health`, because the web app is useless without it.
+
+The API must be reachable at the same origin as the web app, or be told to
+allow the web app's origin. Pick one:
+
+**Same-origin proxy (preferred).** Edit the placeholder host in
+`web/vercel.json` and leave `VITE_API_BASE_URL` unset. Browser requests go to
+`/api/...` on the Vercel domain and are rewritten to the API, so CORS never
+applies and credentials stay first-party.
+
+**Direct cross-origin.** Set `VITE_API_BASE_URL` to the API's URL at build time
+and set `BEACON_CORS_ALLOWED_ORIGINS` on the API to the web app's origin.
+Origins must be listed explicitly; a wildcard is refused because authentication
+sends credentials.
+
+`VITE_*` variables are inlined into the client bundle, so never put a provider
+key in one. All provider keys belong to the API and the pipeline.
+
+The Python pipeline can stay on a local machine. Precomputed scores already live
+in the database, so a deployed API routes correctly without it; only refreshes
+need the pipeline.
+
 ## Known limits
 
 - Imagery covers one corridor: 841 of 580,211 segments. Percentile ranks compare

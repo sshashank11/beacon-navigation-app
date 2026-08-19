@@ -371,9 +371,19 @@ container health check follows.
 
 ### API container
 
-`Dockerfile` builds from the repository root, because the image bakes in
-`data/osm/nyc.osm.pbf` so the container can build its own graph without
-reaching out to Geofabrik. The graph is written to `/data/graph-cache`, which
+`Dockerfile` builds from the repository root and bakes in the clipped
+five-borough extract, so the container can build its own graph without
+reaching out to Geofabrik.
+
+The extract is gitignored, so a host building from the repository has no copy
+of it. Upload `data/osm/nyc.osm.pbf` once as a release asset and pass its URL:
+
+```
+--build-arg OSM_EXTRACT_URL=https://github.com/<owner>/<repo>/releases/download/<tag>/nyc.osm.pbf
+```
+
+On Railway that goes in the service's build settings. A local build needs
+nothing: the extract is taken from the build context when it is there. The graph is written to `/data/graph-cache`, which
 `fly.toml` mounts as a volume: first boot imports 1.1M edges in about 40
 seconds and later boots load the cache instead.
 

@@ -12,6 +12,9 @@ data/*
 !data/osm
 data/osm/*
 !data/osm/nyc.osm.pbf
+# Keeps data/osm present in the context even without the extract, so the
+# build reaches its own error message instead of failing on a missing path.
+!data/osm/.gitkeep
 scripts
 *.md
 .env

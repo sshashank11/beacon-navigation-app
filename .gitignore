@@ -18,7 +18,10 @@ web/dist/
 web/.vite/
 
 # Local data and generated routing artifacts
-data/
+data/*
+!data/osm/
+data/osm/*
+!data/osm/.gitkeep
 *.osm.pbf
 *.osm
 graph-cache/

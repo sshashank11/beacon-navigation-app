@@ -1,5 +1,7 @@
 # Railway deployment
 
+Production URL: <https://beacon-web-production-71a1.up.railway.app>
+
 Beacon runs on Railway as two application services plus PostGIS and Redis:
 
 ```text
@@ -15,8 +17,9 @@ The API does not need a public domain or CORS configuration.
 
 ## Before deploying
 
-- Use a paid Railway plan. The API graph import needs about 2 GB of memory and
-  the runtime database is roughly 518 MB.
+- The included infrastructure fits Railway's 500 MB Trial volume. The runtime
+  export omits pipeline-only staging rows and stores the industrial proximity
+  routing flag directly in `segment_static_score`.
 - Export the local runtime database with `scripts/export-runtime-data.sh`.
 - The clipped OSM extract is published as the `beacon-data-v1` GitHub release
   asset and is ready for the API build variable.
@@ -43,7 +46,7 @@ needs to be reachable from this computer.
 Create a service from this GitHub repository and name it `beacon-api`.
 
 - Root directory: `/`
-- Config file path: `/railway.json`
+- Infrastructure: managed by `.railway/railway.ts`
 - Memory: at least 2 GB
 - Volume mount path: `/data`
 - Public domain: not required
@@ -84,9 +87,17 @@ Open the PostGIS service's public TCP proxy temporarily. Use its generated
 `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, and `PGDATABASE` values with
 `pg_restore`:
 
+On a 500 MB volume, temporarily set the PostGIS start command to the following
+before restoring. This reduces transient WAL usage during the one-time import:
+
+```text
+docker-entrypoint.sh postgres -c wal_level=minimal -c max_wal_senders=0 -c min_wal_size=32MB -c max_wal_size=64MB
+```
+
 ```powershell
 $env:PGPASSWORD = '<Railway PGPASSWORD>'
 pg_restore --clean --if-exists --no-owner --no-privileges `
+  --jobs 2 `
   --host '<Railway PGHOST>' `
   --port '<Railway PGPORT>' `
   --username '<Railway PGUSER>' `
@@ -98,7 +109,9 @@ Remove-Item Env:PGPASSWORD
 Flyway runs when `beacon-api` starts, so restoring into an empty database before
 the first successful API boot is the cleanest order. If Flyway has already
 created empty tables, the `--clean --if-exists` flags replace them with the dump.
-Disable the Postgres TCP proxy after the restore.
+Disable the Postgres TCP proxy after the restore, remove the temporary start
+command, and redeploy PostGIS to restore normal WAL durability before starting
+the API.
 
 ## 4. Create `beacon-web`
 
@@ -106,7 +119,7 @@ Create a second service from the same GitHub repository and name it
 `beacon-web`.
 
 - Root directory: `/web`
-- Config file path: `/web/railway.json`
+- Infrastructure: managed by `.railway/railway.ts`
 - Public domain: generate one in **Settings -> Networking**
 - Volume: none
 
@@ -148,6 +161,11 @@ it separately only when refreshing source data and scores.
 5. Redeploy `beacon-api` once and confirm the graph loads from `/data` rather
    than importing the PBF again.
 
+The August 22, 2026 deployment passed these checks with a 244 MB database,
+580,211 scored segments, a 28-second first API start, and a 10.5-second restart
+from the persisted graph.
+
 Railway deployments created from GitHub will rebuild automatically. The watch
-patterns in each `railway.json` keep frontend-only changes from rebuilding the
-API and vice versa.
+patterns in `.railway/railway.ts` keep frontend-only changes from rebuilding
+the API and vice versa. Run `railway config plan` before applying any future
+infrastructure edits.

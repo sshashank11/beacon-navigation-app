@@ -332,15 +332,17 @@ the running graph untouched.
 
 ## Deployment
 
-The production target is Railway: a public Caddy/React service proxies `/api`
-to a private Spring Boot service, which talks to private PostGIS and Redis
-services. This keeps authentication and SSE same-origin and avoids exposing the
-API directly.
+Beacon is deployed at
+<https://beacon-web-production-71a1.up.railway.app>. A public Caddy/React
+service proxies `/api` to a private Spring Boot service, which talks to private
+PostGIS and Redis services. This keeps authentication and SSE same-origin and
+avoids exposing the API directly.
 
 The API needs at least 2 GB of memory while importing its GraphHopper graph, a
 volume mounted at `/data`, the clipped OSM extract as a build-time download, and
-a restored runtime database of roughly 518 MB. The Python pipeline is optional
-in production because its precomputed scores are included in that database.
+a restored runtime database of roughly 244 MB. The Python pipeline is optional
+in production because its precomputed scores are included in that database;
+pipeline-only source rows are omitted from the runtime export.
 
 See [docs/railway-deployment.md](docs/railway-deployment.md) for the service
 layout, exact Railway reference variables, database export and restore steps,
@@ -358,7 +360,8 @@ volume permissions, optional MinIO setup, and the production smoke test.
   Postgres instead.
 - A POST analysis request takes about 30 s against the full graph. The sampler's
   lateral join over 580k segments needs an index pass.
-- No browser or end-to-end UI tests.
+- No automated browser or end-to-end UI tests; production has a manual browser
+  smoke test.
 - MinIO is pinned to `latest` in Compose and should be pinned before deployment.
 - Dashcam frames are excluded from the crowd prior, but their dashboards still
   inflate vehicle pixel fractions in per-frame readouts.

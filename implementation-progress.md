@@ -4,13 +4,13 @@ Last updated: August 22, 2026
 
 Roadmap source: `implementation-steps.md`
 
-Repository baseline: commit `9ff1c89`
+Production: <https://beacon-web-production-71a1.up.railway.app>
 
 ## Current status
 
-All application work in roadmap steps 1-117 is represented in the repository.
-The remaining work is operational: complete the Railway rollout, restore the
-production data, configure provider credentials, and record the final demo.
+All application work in roadmap steps 1-117 is represented in the repository,
+and the production Railway rollout is complete. Optional provider credentials,
+database backups, and the final demo recording remain operational follow-ups.
 
 | Phase | Steps | Status | Outcome |
 | --- | ---: | --- | --- |
@@ -21,7 +21,7 @@ production data, configure provider credentials, and record the final demo.
 | Live environmental layer | 62-79 | Complete | Provider ingestion, Redis-backed hazard fields, live routing, conditions UI, and smoke-day tests. |
 | Computer vision | 80-99 | Complete | Mapillary ingestion, SegFormer scoring, segment aggregation, route analysis, SSE, and filmstrip UI. |
 | Voice | 100-106 | Complete | Fish Audio/Piper providers, MinIO cache, route announcements, API, and playback UI. |
-| Hardening and deployment | 107-117 | Complete in source | Privacy, deletion, graph swapping, rate limits, telemetry, attribution, deployment containers, and docs. Railway rollout is in progress. |
+| Hardening and deployment | 107-117 | Complete | Privacy, deletion, graph swapping, rate limits, telemetry, attribution, deployment containers, Railway infrastructure, and docs. |
 
 ## Architecture
 
@@ -85,7 +85,7 @@ flowchart LR
 | Computer vision | PyTorch, TorchVision, Hugging Face Transformers, NVIDIA SegFormer, Pillow |
 | Web | React 19, TypeScript, Vite 8, Tailwind CSS 4, MapLibre GL, TanStack Query, Zustand, Lucide, Manrope |
 | Data and cache | PostgreSQL 16, PostGIS 3.4, Redis 7, optional MinIO |
-| Deployment | Docker, Caddy, Railway config as code, GitHub deployments |
+| Deployment | Docker, Caddy, Railway infrastructure as code, GitHub deployments |
 
 ## External APIs and datasets
 
@@ -115,16 +115,18 @@ in a `VITE_*` variable or in source control.
 - The production Caddy proxy returns HTTP 200 for health, SPA fallback, and a
   proxied API request.
 - A fresh graph import loads 823,570 nodes and 1,132,204 edges; a restart loads
-  the graph from the persistent `/data` volume.
+  the graph from the persistent `/data` volume in 10.5 seconds.
+- Railway PostGIS contains 580,211 segments and static scores in a 244 MB
+  runtime database.
+- A production walking comparison from Times Square to Bryant Park returns all
+  three route variants through the public same-origin proxy.
 
 ## Remaining operational work
 
-1. Provision the Railway PostGIS and Redis services.
-2. Restore `beacon-runtime.dump` into Railway PostGIS.
-3. Deploy `beacon-api` with a 2 GB memory allocation and `/data` volume.
-4. Deploy the public `beacon-web` service and configure its private API proxy.
-5. Add and seal any production provider credentials.
-6. Run the production smoke test and enable database backups.
+1. Add and seal provider credentials when live environmental refreshes or Fish
+   Audio are enabled.
+2. Enable Railway database backups before accepting durable user accounts.
+3. Record the final demo and capture production observability baselines.
 
 The exact service layout and variables are in
 [`docs/railway-deployment.md`](docs/railway-deployment.md).

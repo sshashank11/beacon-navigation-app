@@ -1,0 +1,7 @@
+{
+  "name": "beacon-navigation-infrastructure",
+  "private": true,
+  "devDependencies": {
+    "railway": "^3.10.0"
+  }
+}

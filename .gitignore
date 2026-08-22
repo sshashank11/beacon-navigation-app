@@ -16,6 +16,7 @@ pipeline/.pytest_cache/
 web/node_modules/
 web/dist/
 web/.vite/
+/node_modules/
 
 # Local data and generated routing artifacts
 data/*

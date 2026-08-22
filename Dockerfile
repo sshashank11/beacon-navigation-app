@@ -24,7 +24,7 @@ WORKDIR /src
 COPY api/gradlew api/gradlew
 COPY api/gradle api/gradle
 COPY api/build.gradle api/settings.gradle api/
-RUN cd api && chmod +x gradlew && ./gradlew dependencies --no-daemon -q || true
+RUN cd api && chmod +x gradlew && ./gradlew dependencies --no-daemon >/dev/null
 COPY api/src api/src
 RUN cd api && ./gradlew bootJar --no-daemon -x test
 
@@ -42,14 +42,17 @@ COPY --from=build /src/api/build/libs/*.jar /opt/beacon/api.jar
 # The five-borough extract, roughly 90 MB. Baked in so the container can
 # rebuild its graph without reaching out to Geofabrik at boot.
 COPY --from=osm /osm/nyc.osm.pbf /opt/beacon/osm/nyc.osm.pbf
+COPY docker/api-entrypoint.sh /opt/beacon/api-entrypoint.sh
 
 # The graph lives on a mounted volume: importing 1.1M edges takes about half a
 # minute, and a persisted cache turns later boots into a load instead.
-RUN mkdir -p /data && chown -R beacon:beacon /data /opt/beacon
+RUN mkdir -p /data \
+    && chmod +x /opt/beacon/api-entrypoint.sh \
+    && chown -R beacon:beacon /data /opt/beacon
 USER beacon
 
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=5 \
   CMD wget -qO- "http://127.0.0.1:${PORT:-8080}/actuator/health" || exit 1
 
-ENTRYPOINT ["java", "-jar", "/opt/beacon/api.jar"]
+ENTRYPOINT ["/opt/beacon/api-entrypoint.sh"]

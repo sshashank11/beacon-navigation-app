@@ -17,5 +17,8 @@ data/osm/*
 !data/osm/.gitkeep
 scripts
 *.md
+*.dump
+*.backup
+*.sql.gz
 .env
 .env.example

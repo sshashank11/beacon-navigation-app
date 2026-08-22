@@ -332,68 +332,19 @@ the running graph untouched.
 
 ## Deployment
 
-Vercel hosts the web app; the API needs a host that can run a JVM with roughly
-2 GB for the graph, plus PostGIS and Redis. Deploy the API first and confirm
-`/actuator/health`, because the web app is useless without it.
+The production target is Railway: a public Caddy/React service proxies `/api`
+to a private Spring Boot service, which talks to private PostGIS and Redis
+services. This keeps authentication and SSE same-origin and avoids exposing the
+API directly.
 
-The API must be reachable at the same origin as the web app, or be told to
-allow the web app's origin. Pick one:
+The API needs at least 2 GB of memory while importing its GraphHopper graph, a
+volume mounted at `/data`, the clipped OSM extract as a build-time download, and
+a restored runtime database of roughly 518 MB. The Python pipeline is optional
+in production because its precomputed scores are included in that database.
 
-**Same-origin proxy (preferred).** Edit the placeholder host in
-`web/vercel.json` and leave `VITE_API_BASE_URL` unset. Browser requests go to
-`/api/...` on the Vercel domain and are rewritten to the API, so CORS never
-applies and credentials stay first-party.
-
-**Direct cross-origin.** Set `VITE_API_BASE_URL` to the API's URL at build time
-and set `BEACON_CORS_ALLOWED_ORIGINS` on the API to the web app's origin.
-Origins must be listed explicitly; a wildcard is refused because authentication
-sends credentials.
-
-`VITE_*` variables are inlined into the client bundle, so never put a provider
-key in one. All provider keys belong to the API and the pipeline.
-
-### Storage is the binding constraint
-
-The local database is about 848 MB, of which roughly 330 MB is pipeline staging
-data that nothing reads at request time: the street tree census, the per-source
-sample tables, and the traffic road table. `scripts/export-runtime-data.sh`
-dumps everything except those, which brings the restore to roughly 518 MB.
-
-That still exceeds the free tier on Neon and Supabase, both 500 MB. Railway is
-the easier fit because its storage is usage-based rather than capped, and the
-API, Postgres, and Redis can sit in one project on a private network. Fly works
-too, with a Postgres app and a large enough volume. The remaining option is to
-trim the segment table to a bounding box smaller than the five boroughs and
-accept that routing only works inside it.
-
-Either host injects its own `PORT`, which `application.yml` reads and the
-container health check follows.
-
-### API container
-
-`Dockerfile` builds from the repository root and bakes in the clipped
-five-borough extract, so the container can build its own graph without
-reaching out to Geofabrik.
-
-The extract is gitignored, so a host building from the repository has no copy
-of it. Upload `data/osm/nyc.osm.pbf` once as a release asset and pass its URL:
-
-```
---build-arg OSM_EXTRACT_URL=https://github.com/<owner>/<repo>/releases/download/<tag>/nyc.osm.pbf
-```
-
-On Railway that goes in the service's build settings. A local build needs
-nothing: the extract is taken from the build context when it is there. The graph is written to `/data/graph-cache`, which
-`fly.toml` mounts as a volume: first boot imports 1.1M edges in about 40
-seconds and later boots load the cache instead.
-
-The import needs more than 1 GB, so `fly.toml` asks for a 2 GB machine, which
-is not free. `auto_stop_machines` is off deliberately: a cold start would pay
-the graph load in front of a user's request.
-
-The Python pipeline can stay on a local machine. Precomputed scores already live
-in the database, so a deployed API routes correctly without it; only refreshes
-need the pipeline.
+See [docs/railway-deployment.md](docs/railway-deployment.md) for the service
+layout, exact Railway reference variables, database export and restore steps,
+volume permissions, optional MinIO setup, and the production smoke test.
 
 ## Known limits
 

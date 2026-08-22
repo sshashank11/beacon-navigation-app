@@ -31,6 +31,11 @@ graph-cache/
 .env.*
 !.env.example
 
+# Local database exports
+*.dump
+*.backup
+*.sql.gz
+
 # IDE / OS
 .idea/
 .vscode/

@@ -67,7 +67,6 @@ export default defineRailway(() => {
     deploy: {
       healthcheckPath: "/actuator/health",
       healthcheckTimeout: 300,
-      restartPolicyType: "ON_FAILURE",
       restartPolicyMaxRetries: 3,
     },
     replicas: { [REGION]: 1 },
@@ -96,7 +95,6 @@ export default defineRailway(() => {
     deploy: {
       healthcheckPath: "/health",
       healthcheckTimeout: 30,
-      restartPolicyType: "ON_FAILURE",
       restartPolicyMaxRetries: 3,
     },
     replicas: { [REGION]: 1 },

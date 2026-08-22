@@ -1,9 +1,12 @@
 package com.beacon.api.routing.score;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -47,11 +50,41 @@ public class SegmentScoreRepository {
     }
 
     public SegmentScoreIndex loadIndex() {
-        SegmentScoreIndex index = new SegmentScoreIndex(EXPECTED_NYC_WAY_COUNT);
-        jdbcTemplate.query(
-                SCORE_QUERY,
-                (RowCallbackHandler) resultSet -> addScore(index, resultSet));
-        return index;
+        return jdbcTemplate.execute((ConnectionCallback<SegmentScoreIndex>) this::loadIndex);
+    }
+
+    private SegmentScoreIndex loadIndex(Connection connection) throws SQLException {
+        boolean manageTransaction = connection.getAutoCommit();
+        if (manageTransaction) {
+            connection.setAutoCommit(false);
+        }
+
+        try {
+            // Stream groups from the (osm_way_id, seq) index. Hash aggregation
+            // spills this citywide startup query to managed-database storage.
+            try (Statement plannerSettings = connection.createStatement()) {
+                plannerSettings.execute("SET LOCAL enable_hashagg = off");
+                plannerSettings.execute("SET LOCAL enable_seqscan = off");
+                plannerSettings.execute("SET LOCAL enable_mergejoin = off");
+                plannerSettings.execute("SET LOCAL enable_hashjoin = off");
+            }
+
+            SegmentScoreIndex index = new SegmentScoreIndex(EXPECTED_NYC_WAY_COUNT);
+            try (PreparedStatement statement = connection.prepareStatement(SCORE_QUERY)) {
+                statement.setFetchSize(10_000);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    while (resultSet.next()) {
+                        addScore(index, resultSet);
+                    }
+                }
+            }
+            return index;
+        } finally {
+            if (manageTransaction) {
+                connection.rollback();
+                connection.setAutoCommit(true);
+            }
+        }
     }
 
     private static void addScore(SegmentScoreIndex index, ResultSet resultSet) throws SQLException {

@@ -333,10 +333,10 @@ the running graph untouched.
 ## Deployment
 
 Beacon is deployed at
-<https://beacon-web-production-71a1.up.railway.app>. A public Caddy/React
-service proxies `/api` to a private Spring Boot service, which talks to private
-PostGIS and Redis services. This keeps authentication and SSE same-origin and
-avoids exposing the API directly.
+<https://beacon-navigation.vercel.app>. Vercel serves the React application and
+proxies same-origin `/api` requests to the Railway Spring Boot service. The API
+talks to private PostGIS and Redis services on Railway; its public domain is
+used only as the Vercel rewrite upstream.
 
 The API needs at least 2 GB of memory while importing its GraphHopper graph, a
 volume mounted at `/data`, the clipped OSM extract as a build-time download, and
@@ -344,9 +344,9 @@ a restored runtime database of roughly 244 MB. The Python pipeline is optional
 in production because its precomputed scores are included in that database;
 pipeline-only source rows are omitted from the runtime export.
 
-See [docs/railway-deployment.md](docs/railway-deployment.md) for the service
-layout, exact Railway reference variables, database export and restore steps,
-volume permissions, optional MinIO setup, and the production smoke test.
+See [docs/vercel-deployment.md](docs/vercel-deployment.md) for the frontend and
+[docs/railway-deployment.md](docs/railway-deployment.md) for the backend, data
+services, database restore, graph volume, and production smoke tests.
 
 ## Known limits
 
@@ -354,8 +354,8 @@ volume permissions, optional MinIO setup, and the production smoke test.
   photographed segments to each other, not to the city.
 - Construction is permit-derived. Cityscapes has no construction class, and
   inferring one from fences or walls would be fabricated.
-- Speech falls back to the browser voice unless a Fish Audio account has TTS
-  credit or Piper is installed locally.
+- Production speech uses the browser's speech synthesis. Server-generated audio
+  remains optional and is not configured in the hosted deployment.
 - The analysis queue is written but has no consumer; offline scoring reads from
   Postgres instead.
 - A POST analysis request takes about 30 s against the full graph. The sampler's

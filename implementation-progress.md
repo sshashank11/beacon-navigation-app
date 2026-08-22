@@ -4,13 +4,14 @@ Last updated: August 22, 2026
 
 Roadmap source: `implementation-steps.md`
 
-Production: <https://beacon-web-production-71a1.up.railway.app>
+Production: <https://beacon-navigation.vercel.app>
 
 ## Current status
 
 All application work in roadmap steps 1-117 is represented in the repository,
-and the production Railway rollout is complete. Optional provider credentials,
-database backups, and the final demo recording remain operational follow-ups.
+and the Vercel frontend plus Railway backend rollout is complete. Optional
+environmental provider credentials, database backups, and the final demo
+recording remain operational follow-ups.
 
 | Phase | Steps | Status | Outcome |
 | --- | ---: | --- | --- |
@@ -27,8 +28,8 @@ database backups, and the final demo recording remain operational follow-ups.
 
 ```mermaid
 flowchart LR
-    B[Browser] --> W[React + Caddy]
-    W -->|same-origin /api proxy| A[Spring Boot API]
+    B[Browser] --> W[React on Vercel]
+    W -->|same-origin /api rewrite| A[Spring Boot API on Railway]
     A --> G[GraphHopper graph]
     A --> P[(PostgreSQL + PostGIS)]
     A --> R[(Redis)]
@@ -85,7 +86,7 @@ flowchart LR
 | Computer vision | PyTorch, TorchVision, Hugging Face Transformers, NVIDIA SegFormer, Pillow |
 | Web | React 19, TypeScript, Vite 8, Tailwind CSS 4, MapLibre GL, TanStack Query, Zustand, Lucide, Manrope |
 | Data and cache | PostgreSQL 16, PostGIS 3.4, Redis 7, optional MinIO |
-| Deployment | Docker, Caddy, Railway infrastructure as code, GitHub deployments |
+| Deployment | Vercel, Docker, Caddy fallback, Railway infrastructure as code, GitHub deployments |
 
 ## External APIs and datasets
 
@@ -112,8 +113,8 @@ in a `VITE_*` variable or in source control.
 - All 85 Python pipeline tests pass.
 - Frontend Oxlint and the TypeScript/Vite production build pass.
 - The API and web production Docker images build locally.
-- The production Caddy proxy returns HTTP 200 for health, SPA fallback, and a
-  proxied API request.
+- The Vercel deployment returns HTTP 200 for the app shell, static assets, SPA
+  fallback, and a proxied API request.
 - A fresh graph import loads 823,570 nodes and 1,132,204 edges; a restart loads
   the graph from the persistent `/data` volume in 10.5 seconds.
 - Railway PostGIS contains 580,211 segments and static scores in a 244 MB
@@ -123,10 +124,11 @@ in a `VITE_*` variable or in source control.
 
 ## Remaining operational work
 
-1. Add and seal provider credentials when live environmental refreshes or Fish
-   Audio are enabled.
+1. Add and seal provider credentials when live environmental refreshes are
+   enabled.
 2. Enable Railway database backups before accepting durable user accounts.
 3. Record the final demo and capture production observability baselines.
 
-The exact service layout and variables are in
+The exact hosting layouts and variables are in
+[`docs/vercel-deployment.md`](docs/vercel-deployment.md) and
 [`docs/railway-deployment.md`](docs/railway-deployment.md).

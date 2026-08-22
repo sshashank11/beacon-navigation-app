@@ -1,19 +1,22 @@
-# Railway deployment
+# Railway backend deployment
 
-Production URL: <https://beacon-web-production-71a1.up.railway.app>
+Production frontend: <https://beacon-navigation.vercel.app>
 
-Beacon runs on Railway as two application services plus PostGIS and Redis:
+Beacon's API and data services run on Railway. The frontend is deployed to
+Vercel:
 
 ```text
-browser -> beacon-web (public Caddy service)
-               |
-               +-- /api/* -> beacon-api (private Spring Boot service)
-                                    |-- PostGIS
-                                    +-- Redis
+browser -> Vercel web app
+              |
+              +-- /api/* -> beacon-api (public Railway domain)
+                                  |-- PostGIS (private)
+                                  +-- Redis (private)
 ```
 
-The web proxy keeps HTTP Basic credentials and analysis streams on one origin.
-The API does not need a public domain or CORS configuration.
+The Vercel rewrite keeps HTTP Basic credentials and analysis streams on the web
+app's origin. The API needs a public Railway domain for the rewrite upstream,
+but browser code does not call that domain directly and no CORS configuration
+is required.
 
 ## Before deploying
 
@@ -49,7 +52,7 @@ Create a service from this GitHub repository and name it `beacon-api`.
 - Infrastructure: managed by `.railway/railway.ts`
 - Memory: at least 2 GB
 - Volume mount path: `/data`
-- Public domain: not required
+- Public domain: required for the Vercel `/api` rewrite
 
 Add these variables in the service's **Variables** tab. Replace `PostGIS` and
 `Redis` if the canvas uses different service names; Railway autocompletes
@@ -113,29 +116,30 @@ Disable the Postgres TCP proxy after the restore, remove the temporary start
 command, and redeploy PostGIS to restore normal WAL durability before starting
 the API.
 
-## 4. Create `beacon-web`
+## 4. Deploy the frontend
 
-Create a second service from the same GitHub repository and name it
-`beacon-web`.
+Deploy the `web` directory to Vercel using the checked-in `vercel.json`. Set its
+API rewrite destination to the public `beacon-api` Railway domain. The current
+production procedure is documented in
+[`vercel-deployment.md`](vercel-deployment.md).
 
-- Root directory: `/web`
-- Infrastructure: managed by `.railway/railway.ts`
-- Public domain: generate one in **Settings -> Networking**
-- Volume: none
-
-Add one variable:
+The existing Railway `beacon-web` Caddy service may remain online as a rollback
+endpoint. If it is retained, configure it with:
 
 ```dotenv
 API_UPSTREAM=http://${{beacon-api.RAILWAY_PRIVATE_DOMAIN}}:${{beacon-api.PORT}}
 ```
 
-Leave `VITE_API_BASE_URL` unset. Caddy serves the static application and proxies
-same-origin `/api/*` traffic to the API over Railway's private network.
+Leave `VITE_API_BASE_URL` unset. Caddy proxies same-origin `/api/*` traffic over
+Railway's private network, while Vercel uses the public API domain configured in
+`web/vercel.json`.
 
-## 5. Optional speech cache
+## 5. Optional server speech
 
-The browser voice works without another service. To cache Fish Audio or Piper
-clips, add a MinIO service with a volume at `/data`, then configure `beacon-api`:
+Production uses the browser voice and does not require another service. The
+server speech integration remains optional; if it is enabled later, add a MinIO
+service with a volume at `/data` and configure `beacon-api` with the selected
+provider credentials.
 
 ```dotenv
 MINIO_ENDPOINT=http://${{MinIO.RAILWAY_PRIVATE_DOMAIN}}:9000
@@ -153,10 +157,10 @@ it separately only when refreshing source data and scores.
 ## 6. Verify production
 
 1. Confirm `beacon-api` logs show Flyway success and a loaded or imported graph.
-2. Open `https://<beacon-web-domain>/health`; it should return HTTP 200.
-3. Open `https://<beacon-web-domain>/api/v1/conditions/now`; it should return
-   JSON through the private proxy.
-4. Load the web domain, register a temporary account, compare a short route,
+2. Open `https://beacon-navigation.vercel.app`; it should return HTTP 200.
+3. Open `https://beacon-navigation.vercel.app/api/v1/conditions/now`; it should
+   return JSON through the Vercel rewrite.
+4. Load the Vercel domain, register a temporary account, compare a short route,
    start analysis, and delete the account.
 5. Redeploy `beacon-api` once and confirm the graph loads from `/data` rather
    than importing the PBF again.

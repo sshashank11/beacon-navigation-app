@@ -26,8 +26,6 @@ public class SegmentScoreRepository {
               %s
             FROM segment
             LEFT JOIN segment_static_score AS score ON score.segment_id = segment.id
-            LEFT JOIN segment_industrial_sample AS industrial
-              ON industrial.segment_id = segment.id
             GROUP BY segment.osm_way_id
             """.formatted(
             weightedAverage("pm25_prior"),
@@ -111,10 +109,7 @@ public class SegmentScoreRepository {
 
     private static String industrialWithin200m() {
         return """
-                coalesce(
-                  max(case when industrial.nearest_facility_m <= 200 then 100 else 0 end),
-                  0
-                )
+                max(case when score.industrial_within_200m then 100 else 0 end)
                 """.strip();
     }
 }

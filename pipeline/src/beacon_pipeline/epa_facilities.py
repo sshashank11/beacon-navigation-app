@@ -345,15 +345,17 @@ def _refresh_industrial_percentiles(database_url: str) -> None:
             WITH ranked AS (
               SELECT
                 segment_id,
+                nearest_facility_m <= 200 AS industrial_within_200m,
                 PERCENT_RANK() OVER (ORDER BY raw_kernel) * 100 AS industrial
               FROM segment_industrial_sample
             )
             INSERT INTO segment_static_score
-              (segment_id, industrial_prox, computed_at)
-            SELECT segment_id, industrial, now()
+              (segment_id, industrial_prox, industrial_within_200m, computed_at)
+            SELECT segment_id, industrial, industrial_within_200m, now()
             FROM ranked
             ON CONFLICT (segment_id) DO UPDATE SET
               industrial_prox = EXCLUDED.industrial_prox,
+              industrial_within_200m = EXCLUDED.industrial_within_200m,
               computed_at = EXCLUDED.computed_at
             """
         )

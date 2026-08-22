@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Dumps only what a deployed API needs to serve routes.
 #
-# The local database is about 848 MB, but 330 MB of that is pipeline staging
-# data: the street tree census, the per-source sample tables, and the traffic
-# road table are inputs used to compute percentile scores, and nothing reads
-# them at request time. Excluding them brings the dump to roughly 518 MB, which
-# is the difference between fitting a small managed database and not.
+# The local database is about 830 MB, but roughly 380 MB of that is pipeline
+# staging data: the street tree census, the per-source sample tables, and the
+# traffic road table are inputs used to compute percentile scores, and nothing
+# reads them at request time. Excluding them brings the restored database below
+# Railway's 500 MB Trial volume limit.
 #
 # Usage: scripts/export-runtime-data.sh [output.dump]
 set -euo pipefail
@@ -21,6 +21,7 @@ EXCLUDED=(
   segment_nyccas_sample
   segment_tree_sample
   segment_traffic_sample
+  segment_industrial_sample
   traffic_road
 )
 
